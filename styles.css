@@ -73,7 +73,7 @@ video, #drawCanvas, #cursorCanvas {
 video { z-index: 1; display: block; object-fit: cover; transform: scaleX(-1); opacity: .76; background: #03050a; }
 #drawCanvas, #cursorCanvas { pointer-events: none; }
 #drawCanvas { z-index: 2; }
-#cursorCanvas { z-index: 3; }
+#cursorCanvas { z-index: 30; }
 
 .welcome, .loading {
   position: absolute; inset: 0; z-index: 5;
