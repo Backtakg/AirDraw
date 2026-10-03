@@ -135,6 +135,17 @@ video { z-index: 1; display: block; object-fit: cover; transform: scaleX(-1); op
   border-color: rgba(124,92,255,.6);
   background: rgba(124,92,255,.17);
 }
+
+/* Feedback for hands hovering over an AR control. */
+.controls button.air-hover {
+  transform: translateY(-2px) scale(1.08);
+  border-color: rgba(67,181,255,.9);
+  box-shadow: 0 0 0 2px rgba(67,181,255,.16), 0 0 20px rgba(67,181,255,.28);
+}
+.controls button.air-selected {
+  transform: scale(.94);
+  filter: brightness(1.25);
+}
 .icon-btn { width: 38px; height: 38px; font-size: 1.1rem; }
 .icon-btn:disabled { opacity: .3; cursor: default; }
 .secondary { padding: 9px 13px; }
