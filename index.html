@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#05070d">
+  <meta name="description" content="AirDraw — write and draw in the air using your camera and hand tracking.">
+  <title>AirDraw — Draw in the Air</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">✦</span>
+        <div>
+          <h1>AirDraw</h1>
+          <p>Write in the air</p>
+        </div>
+      </div>
+      <div class="status-pill" id="statusPill">
+        <span class="status-dot"></span>
+        <span id="statusText">Camera off</span>
+      </div>
+    </header>
+
+    <section class="stage-wrap">
+      <div class="stage" id="stage">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="drawCanvas"></canvas>
+        <canvas id="cursorCanvas"></canvas>
+
+        <div class="welcome" id="welcome">
+          <div class="welcome-icon">☝</div>
+          <h2>Draw with your hand</h2>
+          <p>Start the camera, then pinch your thumb and index finger together to draw.</p>
+          <button class="primary" id="startButton">Start AirDraw</button>
+          <p class="privacy">Your camera is processed locally in your browser.</p>
+        </div>
+
+        <div class="loading" id="loading" hidden>
+          <div class="spinner"></div>
+          <p id="loadingText">Loading hand tracking…</p>
+        </div>
+
+        <div class="hint" id="hint" hidden>
+          <span>Pinch</span> to draw · <span>Open hand</span> to move
+        </div>
+      </div>
+    </section>
+
+    <section class="controls" aria-label="Drawing controls">
+      <div class="control-group">
+        <button class="tool active" data-tool="brush" title="Brush">✎ <span>Brush</span></button>
+        <button class="tool" data-tool="eraser" title="Eraser">⌫ <span>Eraser</span></button>
+      </div>
+
+      <div class="colors" aria-label="Colors">
+        <button class="color active" data-color="#ffffff" style="--c:#ffffff" title="White"></button>
+        <button class="color" data-color="#ff3b81" style="--c:#ff3b81" title="Pink"></button>
+        <button class="color" data-color="#ff5a36" style="--c:#ff5a36" title="Orange"></button>
+        <button class="color" data-color="#ffd43b" style="--c:#ffd43b" title="Yellow"></button>
+        <button class="color" data-color="#42e8a0" style="--c:#42e8a0" title="Green"></button>
+        <button class="color" data-color="#43b5ff" style="--c:#43b5ff" title="Blue"></button>
+        <button class="color" data-color="#a978ff" style="--c:#a978ff" title="Purple"></button>
+      </div>
+
+      <div class="control-group right">
+        <button class="icon-btn" id="undoButton" title="Undo" disabled>↶</button>
+        <button class="icon-btn" id="redoButton" title="Redo" disabled>↷</button>
+        <button class="secondary" id="clearButton">Clear</button>
+        <button class="primary small" id="saveButton">Save PNG</button>
+      </div>
+    </section>
+
+    <footer>
+      <span>AirDraw</span>
+      <span>•</span>
+      <span>Camera + hand tracking in your browser</span>
+    </footer>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
