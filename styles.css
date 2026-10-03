@@ -105,69 +105,88 @@ video { z-index: 1; display: block; object-fit: cover; transform: scaleX(-1); op
 }
 .hint span { color: white; font-weight: 700; }
 
+/* Camera-native AR controls: no toolbar card. Each control floats directly over the camera. */
 .controls {
   position: absolute;
+  inset: 0;
   z-index: 20;
-  left: 14px;
-  right: 14px;
-  bottom: 14px;
+  pointer-events: none;
+}
+.control-group {
   display: flex;
-  align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
-  padding: 10px;
-  border: 1px solid rgba(255,255,255,.16);
-  border-radius: 18px;
-  background: rgba(7, 10, 18, .78);
-  box-shadow: 0 14px 45px rgba(0,0,0,.34);
-  backdrop-filter: blur(16px) saturate(125%);
-  -webkit-backdrop-filter: blur(16px) saturate(125%);
+  align-items: center;
 }
-.control-group { display: flex; gap: 7px; align-items: center; }
-.control-group.right { margin-left: auto; }
+.controls > .control-group:first-child {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+}
+.control-group.right {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  margin: 0;
+}
 .tool, .icon-btn, .secondary, .primary {
-  border: 1px solid var(--line); background: rgba(255,255,255,.05);
-  border-radius: 11px; cursor: pointer; transition: .18s ease;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(8, 11, 20, .58);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: transform .18s ease, background .18s ease, border-color .18s ease, box-shadow .18s ease, filter .18s ease;
+  pointer-events: auto;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
-.tool { padding: 9px 12px; font-size: .85rem; }
-.tool:hover, .icon-btn:hover, .secondary:hover { background: rgba(255,255,255,.10); }
+.tool { min-width: 62px; min-height: 52px; padding: 9px 13px; font-size: .9rem; }
+.tool:hover, .icon-btn:hover, .secondary:hover { background: rgba(20, 25, 40, .76); }
 .tool.active {
-  border-color: rgba(124,92,255,.6);
-  background: rgba(124,92,255,.17);
+  border-color: rgba(124,92,255,.85);
+  background: rgba(88,66,190,.46);
+  box-shadow: 0 0 24px rgba(124,92,255,.28);
 }
 
-/* Feedback for hands hovering over an AR control. */
+/* Fingertip hover/selection feedback for AR controls. */
 .controls button.air-hover {
-  transform: translateY(-2px) scale(1.08);
-  border-color: rgba(67,181,255,.9);
-  box-shadow: 0 0 0 2px rgba(67,181,255,.16), 0 0 20px rgba(67,181,255,.28);
+  transform: translateY(-3px) scale(1.1);
+  border-color: rgba(67,181,255,.95);
+  box-shadow: 0 0 0 3px rgba(67,181,255,.2), 0 0 28px rgba(67,181,255,.48);
 }
 .controls button.air-selected {
-  transform: scale(.94);
-  filter: brightness(1.25);
+  transform: scale(.92);
+  filter: brightness(1.35);
 }
-.icon-btn { width: 38px; height: 38px; font-size: 1.1rem; }
-.icon-btn:disabled { opacity: .3; cursor: default; }
-.secondary { padding: 9px 13px; }
+.icon-btn { width: 52px; height: 52px; font-size: 1.25rem; }
+.icon-btn:disabled { opacity: .32; cursor: default; }
+.secondary { min-height: 52px; padding: 10px 16px; font-size: .9rem; }
 .primary {
-  border-color: transparent;
-  background: linear-gradient(135deg, #8064ff, #5d43e9);
-  padding: 11px 17px; font-weight: 750;
-  box-shadow: 0 8px 25px rgba(98,70,230,.28);
+  border-color: rgba(151,130,255,.35);
+  background: linear-gradient(135deg, rgba(128,100,255,.92), rgba(93,67,233,.92));
+  padding: 12px 18px; font-weight: 750;
+  box-shadow: 0 10px 30px rgba(98,70,230,.35);
 }
-.primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
-.primary.small { padding: 9px 13px; }
+.primary:hover { filter: brightness(1.08); transform: translateY(-2px); }
+.primary.small { min-height: 52px; padding: 10px 17px; }
 
 .colors {
-  display: flex; gap: 7px; align-items: center; padding: 0 4px; flex-shrink: 0;
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 13px;
+  align-items: center;
+  padding: 4px;
+  pointer-events: none;
 }
 .color {
-  width: 25px; height: 25px; border-radius: 50%; border: 2px solid transparent;
-  background: var(--c); cursor: pointer; box-shadow: 0 0 0 1px rgba(255,255,255,.22);
-  transition: .15s ease;
+  width: 42px; height: 42px; border-radius: 50%; border: 3px solid transparent;
+  background: var(--c); cursor: pointer; box-shadow: 0 0 0 2px rgba(5,7,13,.72), 0 3px 16px rgba(0,0,0,.28);
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  pointer-events: auto;
 }
 .color:hover { transform: scale(1.12); }
-.color.active { border-color: white; box-shadow: 0 0 0 2px #10131d, 0 0 0 3px white; }
+.color.active { border-color: white; box-shadow: 0 0 0 3px rgba(5,7,13,.82), 0 0 0 5px white, 0 0 22px rgba(255,255,255,.3); }
 
 footer {
   display: flex; justify-content: center; gap: 8px; padding: 13px;
