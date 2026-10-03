@@ -5,6 +5,7 @@ const drawCtx = drawCanvas.getContext("2d");
 const cursorCtx = cursorCanvas.getContext("2d");
 const stage = document.querySelector("#stage");
 const welcome = document.querySelector("#welcome");
+const welcomeMessage = document.querySelector("#welcomeMessage");
 const loading = document.querySelector("#loading");
 const loadingText = document.querySelector("#loadingText");
 const hint = document.querySelector("#hint");
@@ -28,10 +29,20 @@ let strokes = [];
 let redoStack = [];
 let activeStroke = null;
 let smoothedPoint = null;
+let started = false;
 
 function setStatus(text, live = false) {
   statusText.textContent = text;
   statusPill.classList.toggle("live", live);
+}
+
+function showLoading(text) {
+  loadingText.textContent = text;
+  loading.hidden = false;
+}
+
+function hideLoading() {
+  loading.hidden = true;
 }
 
 function resizeCanvases() {
@@ -73,10 +84,14 @@ function drawCursor(point, active) {
   const size = tool === "eraser" ? eraserSize : brushSize;
   cursorCtx.beginPath();
   cursorCtx.arc(point.x, point.y, size / 2, 0, Math.PI * 2);
-  cursorCtx.fillStyle = active ? (tool === "eraser" ? "rgba(255,255,255,.12)" : color + "33") : "rgba(255,255,255,.05)";
+  cursorCtx.fillStyle = active
+    ? (tool === "eraser" ? "rgba(255,255,255,.12)" : color + "33")
+    : "rgba(255,255,255,.05)";
   cursorCtx.fill();
   cursorCtx.lineWidth = 2;
-  cursorCtx.strokeStyle = active ? (tool === "eraser" ? "#fff" : color) : "rgba(255,255,255,.55)";
+  cursorCtx.strokeStyle = active
+    ? (tool === "eraser" ? "#fff" : color)
+    : "rgba(255,255,255,.55)";
   cursorCtx.stroke();
 }
 
@@ -207,21 +222,29 @@ function processResults(results) {
     endStroke();
     return;
   }
+
   const raw = canvasPoint(hand[8]);
   const alpha = 0.42;
   smoothedPoint = smoothedPoint
-    ? { x: smoothedPoint.x + (raw.x - smoothedPoint.x) * alpha, y: smoothedPoint.y + (raw.y - smoothedPoint.y) * alpha }
+    ? {
+        x: smoothedPoint.x + (raw.x - smoothedPoint.x) * alpha,
+        y: smoothedPoint.y + (raw.y - smoothedPoint.y) * alpha
+      }
     : raw;
+
   const pinching = isPinching(hand);
   drawCursor(smoothedPoint, pinching);
+
   if (pinching) {
     if (!activeStroke) beginStroke(smoothedPoint);
     else addPoint(smoothedPoint);
-  } else endStroke();
+  } else {
+    endStroke();
+  }
 }
 
 function setupHands() {
-  if (!window.Hands) throw new Error("MediaPipe Hands library did not load.");
+  if (!window.Hands) throw new Error("Hand tracking library did not load. Check your internet connection and refresh.");
   hands = new window.Hands({
     locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
   });
@@ -232,6 +255,13 @@ function setupHands() {
     minTrackingConfidence: 0.55
   });
   hands.onResults(processResults);
+}
+
+function withTimeout(promise, ms, message) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms))
+  ]);
 }
 
 async function processFrame() {
@@ -252,15 +282,20 @@ function loop() {
 }
 
 async function start() {
-  try {
-    welcome.hidden = true;
-    loading.hidden = false;
-    loadingText.textContent = "Loading hand tracking…";
-    setStatus("Loading…");
-    setupHands();
+  if (started) return;
+  started = true;
+  startButton.disabled = true;
+  welcome.hidden = true;
+  showLoading("Requesting camera…");
+  setStatus("Requesting camera…");
 
-    loadingText.textContent = "Requesting camera…";
-    if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera API unavailable. Open the site over HTTPS.");
+  try {
+    if (!window.isSecureContext && location.hostname !== "localhost") {
+      throw new Error("Camera access requires HTTPS. Open the GitHub Pages address, not a local file.");
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error("This browser does not provide camera access.");
+    }
 
     stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
@@ -270,23 +305,51 @@ async function start() {
     video.srcObject = stream;
     await video.play();
     resizeCanvases();
-    loading.hidden = true;
+
+    // Show the camera immediately. Hand tracking loads after the camera is live.
+    hideLoading();
     hint.hidden = false;
     setStatus("Camera live", true);
+
+    showLoading("Loading hand tracking…");
+    await new Promise(requestAnimationFrame);
+    setupHands();
+
+    // Force the model to initialize now, with a clear failure instead of an endless spinner.
+    await withTimeout(hands.send({ image: video }), 15000, "Hand tracking took too long to load.");
+    hideLoading();
+
     animationId = requestAnimationFrame(loop);
   } catch (error) {
     console.error("AirDraw startup error:", error);
     cancelAnimationFrame(animationId);
+
+    if (error?.name === "NotAllowedError") {
+      welcomeMessage.textContent = "Camera permission was blocked. Allow camera access for this site, then tap Start AirDraw again.";
+    } else if (error?.name === "NotFoundError") {
+      welcomeMessage.textContent = "No camera was found on this device.";
+    } else if (stream && video.readyState >= 2) {
+      // Keep the camera available if only the hand-tracking model failed.
+      hideLoading();
+      hint.hidden = false;
+      setStatus("Camera live — tracking unavailable");
+      welcome.hidden = false;
+      welcomeMessage.textContent = "Camera is working, but hand tracking could not load. Check your connection and refresh.";
+      startButton.textContent = "Retry hand tracking";
+      startButton.disabled = false;
+      started = false;
+      return;
+    } else {
+      welcomeMessage.textContent = `Could not start AirDraw: ${error?.message || "unknown error"}`;
+    }
+
     if (stream) stream.getTracks().forEach(t => t.stop());
     stream = null;
-    loading.hidden = true;
+    video.srcObject = null;
+    hideLoading();
     welcome.hidden = false;
-    const message = error?.name === "NotAllowedError"
-      ? "Camera permission was blocked. Allow camera access, then press Start AirDraw again."
-      : error?.name === "NotFoundError"
-        ? "No camera was found on this device."
-        : `Could not start AirDraw: ${error?.message || "unknown error"}`;
-    welcome.querySelector("p").textContent = message;
+    startButton.disabled = false;
+    started = false;
     setStatus("Camera unavailable");
   }
 }
@@ -295,6 +358,7 @@ function stop() {
   cancelAnimationFrame(animationId);
   if (stream) stream.getTracks().forEach(t => t.stop());
   stream = null;
+  if (video) video.srcObject = null;
   setStatus("Camera off");
 }
 

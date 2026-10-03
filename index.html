@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#05070d">
   <meta name="description" content="AirDraw — write and draw in the air using your camera and hand tracking.">
   <title>AirDraw — Draw in the Air</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=4">
 </head>
 <body>
   <main class="app">
@@ -33,14 +33,14 @@
         <div class="welcome" id="welcome">
           <div class="welcome-icon">☝</div>
           <h2>Draw with your hand</h2>
-          <p>Start the camera, then pinch your thumb and index finger together to draw.</p>
+          <p id="welcomeMessage">Start the camera, then pinch your thumb and index finger together to draw.</p>
           <button class="primary" id="startButton">Start AirDraw</button>
           <p class="privacy">Your camera is processed locally in your browser.</p>
         </div>
 
         <div class="loading" id="loading" hidden>
           <div class="spinner"></div>
-          <p id="loadingText">Loading hand tracking…</p>
+          <p id="loadingText">Starting camera…</p>
         </div>
 
         <div class="hint" id="hint" hidden>
@@ -80,7 +80,7 @@
     </footer>
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-  <script src="app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>

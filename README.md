@@ -11,22 +11,21 @@ Draw and write in the air using your webcam and hand tracking.
 - Undo / redo
 - Clear canvas
 - Save artwork as PNG
+- Controls live inside the camera/AR screen
 - No backend or account required
 - Camera processing stays in the browser
 
 ## Run
 
-Because browsers restrict camera access on insecure origins, run the site through a local HTTPS server or deploy it to GitHub Pages.
-
-For local development, any static server works. GitHub Pages is enough for the production site.
+Use the GitHub Pages deployment over HTTPS so the browser can request camera access.
 
 ## Tech
 
 - HTML
 - CSS
 - Vanilla JavaScript
-- MediaPipe Tasks Vision
+- MediaPipe Hands
 - Canvas 2D
 - WebRTC camera API
 
-The hand-tracking model and WASM runtime are loaded from public CDNs at runtime.
+The hand-tracking runtime and model assets are loaded from the public jsDelivr CDN at runtime.
