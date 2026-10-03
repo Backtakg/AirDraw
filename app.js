@@ -323,12 +323,23 @@ async function start() {
 
     // Camera is requested BEFORE any external hand-tracking code.
     if (!stream) {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false
-      });
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "user" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+      } catch (cameraError) {
+        // Some mobile browsers reject camera constraints even when a camera is available.
+        if (cameraError?.name === "OverconstrainedError" || cameraError?.name === "NotReadableError") {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        } else {
+          throw cameraError;
+        }
+      }
 
       video.srcObject = stream;
+      video.muted = true;
+      video.playsInline = true;
       await video.play();
       resizeCanvases();
 
@@ -351,8 +362,7 @@ async function start() {
         hideLoading();
         hint.hidden = false;
         setStatus("Camera live", true);
-        welcome.hidden = false;
-        welcomeMessage.textContent = "Camera is ON. Hand tracking could not load. Check your internet connection and tap Retry.";
+        welcome.hidden = true;
         startButton.textContent = "Retry tracking";
         startButton.disabled = false;
         started = true;
@@ -369,6 +379,12 @@ async function start() {
       welcomeMessage.textContent = "Camera permission was blocked. Allow camera access for this site, then tap Start AirDraw again.";
     } else if (error?.name === "NotFoundError") {
       welcomeMessage.textContent = "No camera was found on this device.";
+    } else if (error?.name === "NotReadableError") {
+      welcomeMessage.textContent = "The camera is busy or unavailable. Close other apps using the camera, then try again.";
+    } else if (error?.name === "SecurityError") {
+      welcomeMessage.textContent = "The browser blocked camera access. Open AirDraw directly from its HTTPS GitHub Pages address.";
+    } else if (error?.name === "OverconstrainedError") {
+      welcomeMessage.textContent = "The requested camera mode is unavailable. Tap Start AirDraw to retry with the device camera.";
     } else {
       welcomeMessage.textContent = `Could not start the camera: ${error?.message || "unknown error"}`;
     }
