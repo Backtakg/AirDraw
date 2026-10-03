@@ -38,8 +38,17 @@ function setStatus(text, live = false) {
   statusPill.classList.toggle("live", live);
 }
 
+function withTimeout(promise, milliseconds, message) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), milliseconds);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 function showLoading(text) {
   loadingText.textContent = text;
+  loading.style.display = "grid";
   loading.hidden = false;
 }
 
@@ -413,6 +422,7 @@ async function start() {
 
     if (!trackingReady) {
       trackingStarting = true;
+      processing = false;
       showLoading("Loading hand tracking model…");
       try {
         await startHandTracking();
