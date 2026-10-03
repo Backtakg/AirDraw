@@ -410,7 +410,18 @@ async function start() {
 
       video.srcObject = stream;
       video.muted = true;
+      video.defaultMuted = true;
+      video.autoplay = true;
       video.playsInline = true;
+      video.setAttribute("muted", "");
+      video.setAttribute("autoplay", "");
+      video.setAttribute("playsinline", "");
+      await new Promise((resolve, reject) => {
+        if (video.readyState >= 1 && video.videoWidth > 0) return resolve();
+        const timer = setTimeout(() => reject(new Error("Camera video did not become ready.")), 8000);
+        video.addEventListener("loadedmetadata", () => { clearTimeout(timer); resolve(); }, { once: true });
+        video.addEventListener("error", () => { clearTimeout(timer); reject(new Error("Camera video failed to load.")); }, { once: true });
+      });
       await video.play();
       resizeCanvases();
 
