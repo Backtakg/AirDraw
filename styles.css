@@ -95,7 +95,7 @@ video { object-fit: cover; transform: scaleX(-1); opacity: .76; }
 
 .controls {
   position: absolute;
-  z-index: 6;
+  z-index: 20;
   left: 14px;
   right: 14px;
   bottom: 14px;

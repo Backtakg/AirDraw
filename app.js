@@ -243,8 +243,29 @@ function processResults(results) {
   }
 }
 
+function loadHandsLibrary() {
+  if (window.Hands) return Promise.resolve();
+
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-mediapipe-hands]');
+    if (existing) {
+      existing.addEventListener('load', resolve, { once: true });
+      existing.addEventListener('error', () => reject(new Error("Hand tracking library could not be loaded.")), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js";
+    script.crossOrigin = "anonymous";
+    script.dataset.mediapipeHands = "true";
+    script.onload = resolve;
+    script.onerror = () => reject(new Error("Hand tracking library could not be loaded. Check your internet connection."));
+    document.head.appendChild(script);
+  });
+}
+
 function setupHands() {
-  if (!window.Hands) throw new Error("Hand tracking library did not load. Check your internet connection and refresh.");
+  if (!window.Hands) throw new Error("Hand tracking library did not load.");
   hands = new window.Hands({
     locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
   });
@@ -282,65 +303,74 @@ function loop() {
 }
 
 async function start() {
-  if (started) return;
-  started = true;
-  startButton.disabled = true;
-  welcome.hidden = true;
-  showLoading("Requesting camera…");
-  setStatus("Requesting camera…");
+  if (started && stream && hands) return;
+
+  if (!started) {
+    started = true;
+    startButton.disabled = true;
+    welcome.hidden = true;
+    showLoading("Requesting camera…");
+    setStatus("Requesting camera…");
+  }
 
   try {
     if (!window.isSecureContext && location.hostname !== "localhost") {
-      throw new Error("Camera access requires HTTPS. Open the GitHub Pages address, not a local file.");
+      throw new Error("Camera access requires HTTPS. Open the GitHub Pages address.");
     }
     if (!navigator.mediaDevices?.getUserMedia) {
       throw new Error("This browser does not provide camera access.");
     }
 
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
-      audio: false
-    });
+    // Camera is requested BEFORE any external hand-tracking code.
+    if (!stream) {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      });
 
-    video.srcObject = stream;
-    await video.play();
-    resizeCanvases();
+      video.srcObject = stream;
+      await video.play();
+      resizeCanvases();
 
-    // Show the camera immediately. Hand tracking loads after the camera is live.
-    hideLoading();
-    hint.hidden = false;
-    setStatus("Camera live", true);
+      // Camera is now visible and usable independently of hand tracking.
+      hideLoading();
+      hint.hidden = false;
+      setStatus("Camera live", true);
+    }
 
-    showLoading("Loading hand tracking…");
-    await new Promise(requestAnimationFrame);
-    setupHands();
-
-    // Force the model to initialize now, with a clear failure instead of an endless spinner.
-    await withTimeout(hands.send({ image: video }), 15000, "Hand tracking took too long to load.");
-    hideLoading();
+    if (!hands) {
+      showLoading("Loading hand tracking…");
+      try {
+        await withTimeout(loadHandsLibrary(), 10000, "Hand tracking library timed out.");
+        setupHands();
+        await withTimeout(hands.send({ image: video }), 15000, "Hand tracking model timed out.");
+        hideLoading();
+        setStatus("AirDraw ready", true);
+      } catch (trackingError) {
+        console.error("Hand tracking startup error:", trackingError);
+        hideLoading();
+        hint.hidden = false;
+        setStatus("Camera live", true);
+        welcome.hidden = false;
+        welcomeMessage.textContent = "Camera is ON. Hand tracking could not load. Check your internet connection and tap Retry.";
+        startButton.textContent = "Retry tracking";
+        startButton.disabled = false;
+        started = true;
+        return;
+      }
+    }
 
     animationId = requestAnimationFrame(loop);
   } catch (error) {
-    console.error("AirDraw startup error:", error);
+    console.error("AirDraw camera error:", error);
     cancelAnimationFrame(animationId);
 
     if (error?.name === "NotAllowedError") {
       welcomeMessage.textContent = "Camera permission was blocked. Allow camera access for this site, then tap Start AirDraw again.";
     } else if (error?.name === "NotFoundError") {
       welcomeMessage.textContent = "No camera was found on this device.";
-    } else if (stream && video.readyState >= 2) {
-      // Keep the camera available if only the hand-tracking model failed.
-      hideLoading();
-      hint.hidden = false;
-      setStatus("Camera live — tracking unavailable");
-      welcome.hidden = false;
-      welcomeMessage.textContent = "Camera is working, but hand tracking could not load. Check your connection and refresh.";
-      startButton.textContent = "Retry hand tracking";
-      startButton.disabled = false;
-      started = false;
-      return;
     } else {
-      welcomeMessage.textContent = `Could not start AirDraw: ${error?.message || "unknown error"}`;
+      welcomeMessage.textContent = `Could not start the camera: ${error?.message || "unknown error"}`;
     }
 
     if (stream) stream.getTracks().forEach(t => t.stop());
@@ -348,12 +378,12 @@ async function start() {
     video.srcObject = null;
     hideLoading();
     welcome.hidden = false;
+    startButton.textContent = "Start AirDraw";
     startButton.disabled = false;
     started = false;
     setStatus("Camera unavailable");
   }
 }
-
 function stop() {
   cancelAnimationFrame(animationId);
   if (stream) stream.getTracks().forEach(t => t.stop());
