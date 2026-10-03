@@ -24,13 +24,14 @@ button { font: inherit; color: inherit; }
   display: flex; align-items: center; justify-content: space-between;
   gap: 16px; margin-bottom: 14px;
 }
-.brand {
+.brand,
+.brand:visited,
+.brand:hover,
+.brand:active {
   display: flex; align-items: center; gap: 12px;
   color: inherit; text-decoration: none; cursor: pointer;
   border-radius: 15px; padding: 3px 8px 3px 3px;
-  transition: transform .18s ease, background .18s ease;
 }
-.brand:hover { transform: translateY(-1px); background: rgba(255,255,255,.035); }
 .brand:focus-visible { outline: 2px solid rgba(124,92,255,.8); outline-offset: 4px; }
 .brand-copy { display: block; }
 .brand-mark {
