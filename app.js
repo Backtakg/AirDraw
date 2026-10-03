@@ -19,6 +19,8 @@ const saveButton = document.querySelector("#saveButton");
 
 let hands = null;
 let stream = null;
+let trackingReady = false;
+let trackingStarting = false;
 let animationId = 0;
 let processing = false;
 let tool = "brush";
@@ -43,6 +45,7 @@ function showLoading(text) {
 
 function hideLoading() {
   loading.hidden = true;
+  loading.style.display = "none";
 }
 
 function resizeCanvases() {
@@ -218,6 +221,7 @@ function processResults(results) {
   cursorCtx.clearRect(0, 0, stage.clientWidth, stage.clientHeight);
   const hand = results.multiHandLandmarks?.[0];
   if (hand) setStatus("Hand detected", true);
+  else if (trackingReady) setStatus("Tracking ready — show your hand", true);
   if (!hand) {
     smoothedPoint = null;
     endStroke();
@@ -250,8 +254,12 @@ function loadHandsLibrary() {
   return new Promise((resolve, reject) => {
     const existing = document.querySelector('script[data-mediapipe-hands]');
     if (existing) {
-      existing.addEventListener('load', resolve, { once: true });
-      existing.addEventListener('error', () => reject(new Error("Hand tracking library could not be loaded.")), { once: true });
+      if (existing.dataset.loaded === "true" && window.Hands) {
+        resolve();
+        return;
+      }
+      existing.addEventListener("load", resolve, { once: true });
+      existing.addEventListener("error", () => reject(new Error("Hand tracking library could not be loaded.")), { once: true });
       return;
     }
 
@@ -259,31 +267,83 @@ function loadHandsLibrary() {
     script.src = "https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js";
     script.crossOrigin = "anonymous";
     script.dataset.mediapipeHands = "true";
-    script.onload = resolve;
-    script.onerror = () => reject(new Error("Hand tracking library could not be loaded. Check your internet connection."));
+    script.onload = () => {
+      script.dataset.loaded = "true";
+      resolve();
+    };
+    script.onerror = () => {
+      script.remove();
+      reject(new Error("Hand tracking library could not be loaded. Check your internet connection."));
+    };
     document.head.appendChild(script);
   });
 }
 
-function setupHands() {
+function closeHands() {
+  if (!hands) return;
+  try {
+    if (typeof hands.close === "function") hands.close();
+  } catch (error) {
+    console.warn("Could not close MediaPipe Hands cleanly:", error);
+  }
+  hands = null;
+  trackingReady = false;
+}
+
+function setupHands(assetBase) {
   if (!window.Hands) throw new Error("Hand tracking library did not load.");
+
   hands = new window.Hands({
-    locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`
+    locateFile: file => assetBase + file
   });
+
   hands.setOptions({
     maxNumHands: 1,
     modelComplexity: 0,
     minDetectionConfidence: 0.5,
     minTrackingConfidence: 0.5
   });
+
   hands.onResults(processResults);
 }
 
-function withTimeout(promise, ms, message) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms))
-  ]);
+async function startHandTracking() {
+  const assetBases = [
+    "https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/",
+    "https://unpkg.com/@mediapipe/hands@0.4.1675469240/"
+  ];
+
+  let lastError = null;
+
+  await withTimeout(
+    loadHandsLibrary(),
+    15000,
+    "Hand tracking library timed out."
+  );
+
+  for (const assetBase of assetBases) {
+    closeHands();
+    try {
+      setupHands(assetBase);
+
+      // MediaPipe loads its WASM/model assets on the first send().
+      // Wait for that real initialization before declaring tracking ready.
+      await withTimeout(
+        hands.send({ image: video }),
+        20000,
+        "Hand model initialization timed out."
+      );
+
+      trackingReady = true;
+      return;
+    } catch (error) {
+      lastError = error;
+      console.error("MediaPipe initialization failed:", assetBase, error);
+      closeHands();
+    }
+  }
+
+  throw lastError || new Error("Hand model could not be initialized.");
 }
 
 async function processFrame() {
@@ -304,7 +364,8 @@ function loop() {
 }
 
 async function start() {
-  if (started && stream && hands) return;
+  if (trackingStarting) return;
+  if (started && stream && trackingReady) return;
 
   if (!started) {
     started = true;
@@ -350,32 +411,32 @@ async function start() {
       setStatus("Camera live", true);
     }
 
-    if (!hands) {
-      showLoading("Starting hand tracking…");
+    if (!trackingReady) {
+      trackingStarting = true;
+      showLoading("Loading hand tracking model…");
       try {
-        await withTimeout(loadHandsLibrary(), 10000, "Hand tracking library timed out.");
-        setupHands();
-
-        // Do not block the camera UI while the hand model downloads/initializes.
-        // MediaPipe can finish loading in the background while frames are processed.
+        await startHandTracking();
         hideLoading();
+        hint.hidden = false;
         setStatus("Hand tracking ready — show your hand", true);
         startButton.textContent = "AirDraw running";
         startButton.disabled = true;
       } catch (trackingError) {
         console.error("Hand tracking startup error:", trackingError);
+        closeHands();
         hideLoading();
         hint.hidden = false;
         setStatus("Camera live — tracking unavailable", true);
         startButton.textContent = "Retry tracking";
         startButton.disabled = false;
-        // Keep the camera visible and usable even if the tracking CDN/model fails.
         started = true;
-        animationId = requestAnimationFrame(loop);
         return;
+      } finally {
+        trackingStarting = false;
       }
     }
 
+    cancelAnimationFrame(animationId);
     animationId = requestAnimationFrame(loop);
   } catch (error) {
     console.error("AirDraw camera error:", error);
@@ -403,14 +464,20 @@ async function start() {
     startButton.textContent = "Start AirDraw";
     startButton.disabled = false;
     started = false;
+    trackingReady = false;
+    trackingStarting = false;
+    closeHands();
     setStatus("Camera unavailable");
   }
 }
 function stop() {
   cancelAnimationFrame(animationId);
+  closeHands();
   if (stream) stream.getTracks().forEach(t => t.stop());
   stream = null;
   if (video) video.srcObject = null;
+  trackingReady = false;
+  trackingStarting = false;
   setStatus("Camera off");
 }
 
