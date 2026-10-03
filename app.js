@@ -350,28 +350,32 @@ async function start() {
     }
 
     if (!hands) {
-      showLoading("Loading hand tracking…");
+      showLoading("Starting hand tracking…");
       try {
         await withTimeout(loadHandsLibrary(), 10000, "Hand tracking library timed out.");
         setupHands();
-        await withTimeout(hands.send({ image: video }), 15000, "Hand tracking model timed out.");
+
+        // Do not block the camera UI while the hand model downloads/initializes.
+        // MediaPipe can finish loading in the background while frames are processed.
         hideLoading();
-        setStatus("AirDraw ready", true);
+        setStatus("Hand tracking starting…", true);
+        startButton.textContent = "AirDraw running";
+        startButton.disabled = true;
       } catch (trackingError) {
         console.error("Hand tracking startup error:", trackingError);
         hideLoading();
         hint.hidden = false;
-        setStatus("Camera live", true);
-        welcome.hidden = true;
+        setStatus("Camera live — tracking unavailable", true);
         startButton.textContent = "Retry tracking";
         startButton.disabled = false;
+        // Keep the camera visible and usable even if the tracking CDN/model fails.
         started = true;
+        animationId = requestAnimationFrame(loop);
         return;
       }
     }
 
-    animationId = requestAnimationFrame(loop);
-  } catch (error) {
+    animationId = requestAnimationFrame(loop);  } catch (error) {
     console.error("AirDraw camera error:", error);
     cancelAnimationFrame(animationId);
 
