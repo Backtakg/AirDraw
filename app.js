@@ -130,8 +130,12 @@ function updateAirControlDwell(control) {
   if (!control) {
     dwellControl = null;
     dwellStartedAt = 0;
+    selectedAirControl = null;
     return false;
   }
+
+  // One selection per visit. Move away and back to select again.
+  if (selectedAirControl === control) return false;
 
   if (dwellControl !== control) {
     dwellControl = control;
@@ -141,8 +145,8 @@ function updateAirControlDwell(control) {
 
   if (performance.now() - dwellStartedAt >= CONTROL_DWELL_MS) {
     activateAirControl(control);
+    selectedAirControl = control;
     dwellControl = null;
-    dwellStartedAt = performance.now();
     return true;
   }
 
