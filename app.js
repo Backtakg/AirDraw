@@ -217,6 +217,7 @@ function savePng() {
 function processResults(results) {
   cursorCtx.clearRect(0, 0, stage.clientWidth, stage.clientHeight);
   const hand = results.multiHandLandmarks?.[0];
+  if (hand) setStatus("Hand detected", true);
   if (!hand) {
     smoothedPoint = null;
     endStroke();
@@ -255,7 +256,7 @@ function loadHandsLibrary() {
     }
 
     const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js";
+    script.src = "https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469404/hands.js";
     script.crossOrigin = "anonymous";
     script.dataset.mediapipeHands = "true";
     script.onload = resolve;
@@ -267,13 +268,13 @@ function loadHandsLibrary() {
 function setupHands() {
   if (!window.Hands) throw new Error("Hand tracking library did not load.");
   hands = new window.Hands({
-    locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+    locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469404/${file}`
   });
   hands.setOptions({
     maxNumHands: 1,
-    modelComplexity: 1,
-    minDetectionConfidence: 0.55,
-    minTrackingConfidence: 0.55
+    modelComplexity: 0,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5
   });
   hands.onResults(processResults);
 }
@@ -358,7 +359,7 @@ async function start() {
         // Do not block the camera UI while the hand model downloads/initializes.
         // MediaPipe can finish loading in the background while frames are processed.
         hideLoading();
-        setStatus("Hand tracking starting…", true);
+        setStatus("Hand tracking ready — show your hand", true);
         startButton.textContent = "AirDraw running";
         startButton.disabled = true;
       } catch (trackingError) {
@@ -375,7 +376,8 @@ async function start() {
       }
     }
 
-    animationId = requestAnimationFrame(loop);  } catch (error) {
+    animationId = requestAnimationFrame(loop);
+  } catch (error) {
     console.error("AirDraw camera error:", error);
     cancelAnimationFrame(animationId);
 
