@@ -80,13 +80,59 @@ function distance(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
+function isPointInsideRect(point, rect) {
+  return point.x >= rect.left && point.x <= rect.right &&
+    point.y >= rect.top && point.y <= rect.bottom;
+}
+
+let pinchActive = false;
+let lastAirSelectionAt = 0;
+let hoveredControl = null;
+
+function getAirControlAt(point) {
+  const controls = document.querySelectorAll(".controls button");
+  for (const button of controls) {
+    if (button.disabled || button.offsetParent === null) continue;
+    const rect = button.getBoundingClientRect();
+    if (isPointInsideRect(point, rect)) return button;
+  }
+  return null;
+}
+
+function updateAirControlHover(button) {
+  if (hoveredControl === button) return;
+  if (hoveredControl) hoveredControl.classList.remove("air-hover");
+  hoveredControl = button;
+  if (hoveredControl) hoveredControl.classList.add("air-hover");
+}
+
+function clearAirControlHover() {
+  if (hoveredControl) hoveredControl.classList.remove("air-hover");
+  hoveredControl = null;
+}
+
+function activateAirControl(button) {
+  if (!button || button.disabled) return;
+  const now = performance.now();
+  if (now - lastAirSelectionAt < 450) return;
+  lastAirSelectionAt = now;
+  button.click();
+  button.classList.remove("air-hover");
+  button.classList.add("air-selected");
+  setTimeout(() => button.classList.remove("air-selected"), 180);
+}
+
 function isPinching(hand) {
   const wrist = hand[0];
   const thumb = hand[4];
   const index = hand[8];
   const middleMcp = hand[9];
   const palm = Math.max(distance(wrist, middleMcp), 0.001);
-  return distance(thumb, index) / palm < 0.42;
+  const ratio = distance(thumb, index) / palm;
+
+  // Hysteresis makes the gesture much easier to trigger and prevents flicker.
+  if (pinchActive) return ratio < 0.62;
+  return ratio < 0.48;
 }
 
 function drawCursor(point, active) {
@@ -234,6 +280,8 @@ function processResults(results) {
   if (!hand) {
     smoothedPoint = null;
     endStroke();
+    pinchActive = false;
+    clearAirControlHover();
     return;
   }
 
@@ -246,15 +294,25 @@ function processResults(results) {
       }
     : raw;
 
+  const control = getAirControlAt(smoothedPoint);
+  updateAirControlHover(control);
+
   const pinching = isPinching(hand);
   drawCursor(smoothedPoint, pinching);
 
-  if (pinching) {
+  // Pinch while pointing at a control = an in-camera/AR button press.
+  // Do not draw while the fingertip is over the toolbar.
+  if (control) {
+    if (pinching && !pinchActive) activateAirControl(control);
+    endStroke();
+  } else if (pinching) {
     if (!activeStroke) beginStroke(smoothedPoint);
     else addPoint(smoothedPoint);
   } else {
     endStroke();
   }
+
+  pinchActive = pinching;
 }
 
 function loadHandsLibrary() {
