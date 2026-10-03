@@ -416,3 +416,9 @@ clearButton.addEventListener("click", clearDrawing);
 saveButton.addEventListener("click", savePng);
 window.addEventListener("resize", resizeCanvases);
 window.addEventListener("beforeunload", stop);
+
+// Try to start automatically; if the browser requires a gesture,
+// the Start AirDraw button remains available.
+window.addEventListener("DOMContentLoaded", () => {
+  setTimeout(() => start(), 250);
+});

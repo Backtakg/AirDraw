@@ -24,13 +24,23 @@ button { font: inherit; color: inherit; }
   display: flex; align-items: center; justify-content: space-between;
   gap: 16px; margin-bottom: 14px;
 }
-.brand { display: flex; align-items: center; gap: 12px; }
-.brand-mark {
-  display: grid; place-items: center; width: 42px; height: 42px;
-  border: 1px solid var(--line); border-radius: 13px;
-  background: linear-gradient(135deg, rgba(124,92,255,.35), rgba(67,181,255,.18));
-  box-shadow: 0 0 30px rgba(124,92,255,.18);
+.brand {
+  display: flex; align-items: center; gap: 12px;
+  color: inherit; text-decoration: none; cursor: pointer;
+  border-radius: 15px; padding: 3px 8px 3px 3px;
+  transition: transform .18s ease, background .18s ease;
 }
+.brand:hover { transform: translateY(-1px); background: rgba(255,255,255,.035); }
+.brand:focus-visible { outline: 2px solid rgba(124,92,255,.8); outline-offset: 4px; }
+.brand-copy { display: block; }
+.brand-mark {
+  display: grid; place-items: center; width: 46px; height: 46px;
+  border: 1px solid rgba(255,255,255,.13); border-radius: 15px;
+  background: radial-gradient(circle at 70% 25%, rgba(169,120,255,.24), transparent 42%),
+              linear-gradient(135deg, rgba(67,181,255,.16), rgba(124,92,255,.28));
+  box-shadow: 0 0 30px rgba(124,92,255,.20), inset 0 0 18px rgba(255,255,255,.04);
+}
+.brand-mark svg { width: 34px; height: 34px; display: block; }
 .brand h1 { margin: 0; font-size: 1.2rem; letter-spacing: -.02em; }
 .brand p { margin: 2px 0 0; color: var(--muted); font-size: .78rem; }
 

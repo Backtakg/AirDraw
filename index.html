@@ -5,19 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#05070d">
   <meta name="description" content="AirDraw — write and draw in the air using your camera and hand tracking.">
+  <meta http-equiv="Permissions-Policy" content="camera=(self)">
   <title>AirDraw — Draw in the Air</title>
   <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
   <main class="app">
     <header class="topbar">
-      <div class="brand">
-        <span class="brand-mark">✦</span>
-        <div>
+      <a class="brand" href="./" aria-label="AirDraw home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 48 48">
+            <defs>
+              <linearGradient id="airLogoGradient" x1="5" y1="42" x2="42" y2="6">
+                <stop offset="0" stop-color="#43b5ff"/>
+                <stop offset=".5" stop-color="#7c5cff"/>
+                <stop offset="1" stop-color="#a978ff"/>
+              </linearGradient>
+            </defs>
+            <path d="M8 35.5C16 37 29 33.5 37.5 25c3.4-3.4 4.5-7.4 2.1-9.5-2.5-2.2-6.5-.8-9.7 2.5L14 33.9" fill="none" stroke="url(#airLogoGradient)" stroke-width="4.2" stroke-linecap="round"/>
+            <path d="M24.5 28.5l7.8-11.7 3.2 3.2-11 8.5Z" fill="url(#airLogoGradient)"/>
+            <circle cx="11" cy="36" r="3.1" fill="#43b5ff"/>
+            <circle cx="39" cy="12" r="2.2" fill="#a978ff"/>
+          </svg>
+        </span>
+        <span class="brand-copy">
           <h1>AirDraw</h1>
           <p>Write in the air</p>
-        </div>
-      </div>
+        </span>
+      </a>
       <div class="status-pill" id="statusPill">
         <span class="status-dot"></span>
         <span id="statusText">Camera off</span>
