@@ -1,5 +1,3 @@
-import { FilesetResolver, HandLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/+esm";
-
 const video = document.querySelector("#video");
 const drawCanvas = document.querySelector("#drawCanvas");
 const cursorCanvas = document.querySelector("#cursorCanvas");
@@ -18,11 +16,10 @@ const redoButton = document.querySelector("#redoButton");
 const clearButton = document.querySelector("#clearButton");
 const saveButton = document.querySelector("#saveButton");
 
-let handLandmarker = null;
+let hands = null;
 let stream = null;
 let animationId = 0;
-let lastVideoTime = -1;
-
+let processing = false;
 let tool = "brush";
 let color = "#ffffff";
 let brushSize = 7;
@@ -31,9 +28,6 @@ let strokes = [];
 let redoStack = [];
 let activeStroke = null;
 let smoothedPoint = null;
-
-const modelUrl = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
-const wasmPath = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm";
 
 function setStatus(text, live = false) {
   statusText.textContent = text;
@@ -56,10 +50,7 @@ function resizeCanvases() {
 
 function canvasPoint(landmark) {
   const rect = stage.getBoundingClientRect();
-  return {
-    x: (1 - landmark.x) * rect.width,
-    y: landmark.y * rect.height
-  };
+  return { x: (1 - landmark.x) * rect.width, y: landmark.y * rect.height };
 }
 
 function distance(a, b) {
@@ -67,9 +58,9 @@ function distance(a, b) {
 }
 
 function isPinching(hand) {
+  const wrist = hand[0];
   const thumb = hand[4];
   const index = hand[8];
-  const wrist = hand[0];
   const middleMcp = hand[9];
   const palm = Math.max(distance(wrist, middleMcp), 0.001);
   return distance(thumb, index) / palm < 0.42;
@@ -79,26 +70,18 @@ function drawCursor(point, active) {
   const rect = stage.getBoundingClientRect();
   cursorCtx.clearRect(0, 0, rect.width, rect.height);
   if (!point) return;
-
   const size = tool === "eraser" ? eraserSize : brushSize;
   cursorCtx.beginPath();
   cursorCtx.arc(point.x, point.y, size / 2, 0, Math.PI * 2);
-  cursorCtx.fillStyle = active
-    ? (tool === "eraser" ? "rgba(255,255,255,.12)" : color + "33")
-    : "rgba(255,255,255,.05)";
+  cursorCtx.fillStyle = active ? (tool === "eraser" ? "rgba(255,255,255,.12)" : color + "33") : "rgba(255,255,255,.05)";
   cursorCtx.fill();
   cursorCtx.lineWidth = 2;
-  cursorCtx.strokeStyle = active ? (tool === "eraser" ? "#ffffff" : color) : "rgba(255,255,255,.55)";
+  cursorCtx.strokeStyle = active ? (tool === "eraser" ? "#fff" : color) : "rgba(255,255,255,.55)";
   cursorCtx.stroke();
 }
 
 function beginStroke(point) {
-  activeStroke = {
-    tool,
-    color,
-    size: tool === "eraser" ? eraserSize : brushSize,
-    points: [point]
-  };
+  activeStroke = { tool, color, size: tool === "eraser" ? eraserSize : brushSize, points: [point] };
   strokes.push(activeStroke);
   redoStack = [];
   updateHistoryButtons();
@@ -113,21 +96,17 @@ function addPoint(point) {
   }
 }
 
-function endStroke() {
-  activeStroke = null;
-}
+function endStroke() { activeStroke = null; }
 
 function redraw() {
   const rect = stage.getBoundingClientRect();
   drawCtx.clearRect(0, 0, rect.width, rect.height);
-
   for (const stroke of strokes) {
-    if (stroke.points.length === 0) continue;
+    if (!stroke.points.length) continue;
     drawCtx.save();
     drawCtx.lineCap = "round";
     drawCtx.lineJoin = "round";
     drawCtx.lineWidth = stroke.size;
-
     if (stroke.tool === "eraser") {
       drawCtx.globalCompositeOperation = "destination-out";
       drawCtx.strokeStyle = "#000";
@@ -137,7 +116,6 @@ function redraw() {
       drawCtx.shadowColor = stroke.color;
       drawCtx.shadowBlur = Math.min(stroke.size * 2.2, 28);
     }
-
     if (stroke.points.length === 1) {
       const p = stroke.points[0];
       drawCtx.beginPath();
@@ -147,10 +125,7 @@ function redraw() {
     } else {
       drawCtx.beginPath();
       drawCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
-      for (let i = 1; i < stroke.points.length; i++) {
-        const p = stroke.points[i];
-        drawCtx.lineTo(p.x, p.y);
-      }
+      for (let i = 1; i < stroke.points.length; i++) drawCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
       drawCtx.stroke();
     }
     drawCtx.restore();
@@ -192,22 +167,10 @@ function savePng() {
   out.width = Math.round(rect.width * 2);
   out.height = Math.round(rect.height * 2);
   const ctx = out.getContext("2d");
-
   ctx.fillStyle = "#05070d";
   ctx.fillRect(0, 0, out.width, out.height);
   ctx.save();
   ctx.scale(2, 2);
-
-  // Add a subtle background grid so the exported artwork feels intentional.
-  ctx.strokeStyle = "rgba(255,255,255,.035)";
-  ctx.lineWidth = 1;
-  for (let x = 0; x < rect.width; x += 32) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, rect.height); ctx.stroke();
-  }
-  for (let y = 0; y < rect.height; y += 32) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(rect.width, y); ctx.stroke();
-  }
-
   for (const stroke of strokes) {
     if (!stroke.points.length) continue;
     ctx.save();
@@ -230,58 +193,62 @@ function savePng() {
     ctx.restore();
   }
   ctx.restore();
-
   const link = document.createElement("a");
   link.download = "airdraw.png";
   link.href = out.toDataURL("image/png");
   link.click();
 }
 
-async function loadHandTracking() {
-  const vision = await FilesetResolver.forVisionTasks(wasmPath);
-  return HandLandmarker.createFromOptions(vision, {
-    baseOptions: { modelAssetPath: modelUrl, delegate: "GPU" },
-    runningMode: "VIDEO",
-    numHands: 1,
-    minHandDetectionConfidence: 0.55,
-    minHandPresenceConfidence: 0.55,
-    minTrackingConfidence: 0.55
-  });
-}
-
-function processResults(result) {
+function processResults(results) {
   cursorCtx.clearRect(0, 0, stage.clientWidth, stage.clientHeight);
-  if (!result.landmarks?.length) {
+  const hand = results.multiHandLandmarks?.[0];
+  if (!hand) {
     smoothedPoint = null;
     endStroke();
     return;
   }
-
-  const hand = result.landmarks[0];
   const raw = canvasPoint(hand[8]);
-  const alpha = 0.38;
+  const alpha = 0.42;
   smoothedPoint = smoothedPoint
     ? { x: smoothedPoint.x + (raw.x - smoothedPoint.x) * alpha, y: smoothedPoint.y + (raw.y - smoothedPoint.y) * alpha }
     : raw;
-
   const pinching = isPinching(hand);
   drawCursor(smoothedPoint, pinching);
-
   if (pinching) {
     if (!activeStroke) beginStroke(smoothedPoint);
     else addPoint(smoothedPoint);
-  } else {
-    endStroke();
+  } else endStroke();
+}
+
+function setupHands() {
+  if (!window.Hands) throw new Error("MediaPipe Hands library did not load.");
+  hands = new window.Hands({
+    locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+  });
+  hands.setOptions({
+    maxNumHands: 1,
+    modelComplexity: 1,
+    minDetectionConfidence: 0.55,
+    minTrackingConfidence: 0.55
+  });
+  hands.onResults(processResults);
+}
+
+async function processFrame() {
+  if (!hands || !stream || video.readyState < 2 || processing) return;
+  processing = true;
+  try {
+    await hands.send({ image: video });
+  } catch (error) {
+    console.error("Hand tracking frame error:", error);
+  } finally {
+    processing = false;
   }
 }
 
-async function frame() {
-  if (video.readyState >= 2 && handLandmarker && video.currentTime !== lastVideoTime) {
-    lastVideoTime = video.currentTime;
-    const result = handLandmarker.detectForVideo(video, performance.now());
-    processResults(result);
-  }
-  animationId = requestAnimationFrame(frame);
+function loop() {
+  processFrame();
+  animationId = requestAnimationFrame(loop);
 }
 
 async function start() {
@@ -290,10 +257,11 @@ async function start() {
     loading.hidden = false;
     loadingText.textContent = "Loading hand tracking…";
     setStatus("Loading…");
-
-    handLandmarker = await loadHandTracking();
+    setupHands();
 
     loadingText.textContent = "Requesting camera…";
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera API unavailable. Open the site over HTTPS.");
+
     stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: false
@@ -302,18 +270,22 @@ async function start() {
     video.srcObject = stream;
     await video.play();
     resizeCanvases();
-
     loading.hidden = true;
     hint.hidden = false;
     setStatus("Camera live", true);
-    animationId = requestAnimationFrame(frame);
+    animationId = requestAnimationFrame(loop);
   } catch (error) {
-    console.error(error);
+    console.error("AirDraw startup error:", error);
+    cancelAnimationFrame(animationId);
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    stream = null;
     loading.hidden = true;
     welcome.hidden = false;
     const message = error?.name === "NotAllowedError"
-      ? "Camera permission was blocked. Allow camera access and try again."
-      : "Could not start the camera. Make sure this page is served over HTTPS.";
+      ? "Camera permission was blocked. Allow camera access, then press Start AirDraw again."
+      : error?.name === "NotFoundError"
+        ? "No camera was found on this device."
+        : `Could not start AirDraw: ${error?.message || "unknown error"}`;
     welcome.querySelector("p").textContent = message;
     setStatus("Camera unavailable");
   }
@@ -339,9 +311,7 @@ document.querySelectorAll(".color").forEach(button => {
     document.querySelectorAll(".color").forEach(b => b.classList.remove("active"));
     button.classList.add("active");
     color = button.dataset.color;
-    if (tool === "eraser") {
-      document.querySelector('[data-tool="brush"]').click();
-    }
+    if (tool === "eraser") document.querySelector('[data-tool="brush"]').click();
   });
 });
 
