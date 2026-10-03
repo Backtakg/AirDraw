@@ -256,7 +256,7 @@ function loadHandsLibrary() {
     }
 
     const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469404/hands.js";
+    script.src = "https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js";
     script.crossOrigin = "anonymous";
     script.dataset.mediapipeHands = "true";
     script.onload = resolve;
@@ -268,7 +268,7 @@ function loadHandsLibrary() {
 function setupHands() {
   if (!window.Hands) throw new Error("Hand tracking library did not load.");
   hands = new window.Hands({
-    locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469404/${file}`
+    locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`
   });
   hands.setOptions({
     maxNumHands: 1,
