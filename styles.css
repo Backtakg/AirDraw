@@ -70,7 +70,7 @@ button { font: inherit; color: inherit; }
 video, #drawCanvas, #cursorCanvas {
   position: absolute; inset: 0; width: 100%; height: 100%;
 }
-video { object-fit: cover; transform: scaleX(-1); opacity: .76; }
+video { z-index: 1; display: block; object-fit: cover; transform: scaleX(-1); opacity: .76; background: #03050a; }
 #drawCanvas, #cursorCanvas { pointer-events: none; }
 #drawCanvas { z-index: 2; }
 #cursorCanvas { z-index: 3; }
