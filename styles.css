@@ -97,10 +97,22 @@ video { object-fit: cover; transform: scaleX(-1); opacity: .76; }
 .hint span { color: white; font-weight: 700; }
 
 .controls {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  margin-top: 14px; padding: 12px;
-  border: 1px solid var(--line); border-radius: 18px; background: var(--panel);
-  box-shadow: 0 12px 45px rgba(0,0,0,.18);
+  position: absolute;
+  z-index: 6;
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 18px;
+  background: rgba(7, 10, 18, .72);
+  box-shadow: 0 14px 45px rgba(0,0,0,.30);
+  backdrop-filter: blur(16px) saturate(125%);
+  -webkit-backdrop-filter: blur(16px) saturate(125%);
 }
 .control-group { display: flex; gap: 7px; align-items: center; }
 .control-group.right { margin-left: auto; }
@@ -126,7 +138,13 @@ video { object-fit: cover; transform: scaleX(-1); opacity: .76; }
 .primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
 .primary.small { padding: 9px 13px; }
 
-.colors { display: flex; gap: 7px; align-items: center; padding: 0 4px; }
+.colors {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
 .color {
   width: 25px; height: 25px; border-radius: 50%; border: 2px solid transparent;
   background: var(--c); cursor: pointer; box-shadow: 0 0 0 1px rgba(255,255,255,.22);
@@ -143,9 +161,28 @@ footer {
 @media (max-width: 720px) {
   .app { padding: 10px; }
   .stage { min-height: 58vh; aspect-ratio: auto; }
-  .controls { justify-content: center; }
-  .control-group.right { margin-left: 0; width: 100%; justify-content: center; }
-  .colors { order: -1; width: 100%; justify-content: center; padding: 4px 0 8px; }
+  .controls {
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    gap: 7px;
+    padding: 8px;
+    justify-content: center;
+    max-height: 34%;
+    overflow-x: auto;
+    overflow-y: auto;
+  }
+  .control-group.right {
+    margin-left: 0;
+    justify-content: center;
+  }
+  .colors {
+    order: -1;
+    width: 100%;
+    justify-content: center;
+    padding: 2px 0 5px;
+  }
   .tool span { display: none; }
+  .hint { bottom: 37%; }
   footer { display: none; }
 }
