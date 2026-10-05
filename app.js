@@ -218,6 +218,35 @@ function addPoint(point) {
 
 function endStroke() { activeStroke = null; }
 
+function drawSmoothStroke(ctx, points) {
+  if (points.length === 1) {
+    const p = points[0];
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, ctx.lineWidth / 2, 0, Math.PI * 2);
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.fill();
+    return;
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+
+  // Quadratic Bézier segments through midpoints keep the stroke fluid
+  // without adding visible latency to the fingertip cursor.
+  for (let i = 1; i < points.length - 1; i++) {
+    const current = points[i];
+    const next = points[i + 1];
+    const midX = (current.x + next.x) / 2;
+    const midY = (current.y + next.y) / 2;
+    ctx.quadraticCurveTo(current.x, current.y, midX, midY);
+  }
+
+  const last = points[points.length - 1];
+  const previous = points[points.length - 2];
+  ctx.quadraticCurveTo(previous.x, previous.y, last.x, last.y);
+  ctx.stroke();
+}
+
 function redraw() {
   const rect = stage.getBoundingClientRect();
   drawCtx.clearRect(0, 0, rect.width, rect.height);
@@ -243,10 +272,7 @@ function redraw() {
       drawCtx.fillStyle = stroke.tool === "eraser" ? "#000" : stroke.color;
       drawCtx.fill();
     } else {
-      drawCtx.beginPath();
-      drawCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
-      for (let i = 1; i < stroke.points.length; i++) drawCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
-      drawCtx.stroke();
+      drawSmoothStroke(drawCtx, stroke.points);
     }
     drawCtx.restore();
   }
@@ -303,13 +329,15 @@ function savePng() {
       ctx.shadowColor = stroke.color;
       ctx.shadowBlur = Math.min(stroke.size * 2.2, 28);
     }
-    ctx.beginPath();
-    ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-    for (let i = 1; i < stroke.points.length; i++) ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
     if (stroke.points.length === 1) {
-      ctx.arc(stroke.points[0].x, stroke.points[0].y, stroke.size / 2, 0, Math.PI * 2);
+      const p = stroke.points[0];
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, stroke.size / 2, 0, Math.PI * 2);
+      ctx.fillStyle = stroke.tool === "eraser" ? "#000" : stroke.color;
       ctx.fill();
-    } else ctx.stroke();
+    } else {
+      drawSmoothStroke(ctx, stroke.points);
+    }
     ctx.restore();
   }
   ctx.restore();
