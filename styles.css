@@ -50,7 +50,9 @@ button { font: inherit; color: inherit; }
   display: flex; align-items: center; gap: 8px; padding: 8px 11px;
   border: 1px solid var(--line); border-radius: 999px;
   background: rgba(255,255,255,.04); color: var(--muted); font-size: .78rem;
+  max-width: 270px;
 }
+#statusText { line-height: 1.15; }
 .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #687083; }
 .status-pill.live { color: #b8f8d7; border-color: rgba(66,232,160,.25); }
 .status-pill.live .status-dot { background: #42e8a0; box-shadow: 0 0 10px #42e8a0; }
@@ -258,5 +260,7 @@ footer {
   }
   .tool span { display: none; }
   .hint { margin-top: 8px; font-size: .64rem; }
+  .status-pill { max-width: 205px; padding: 8px 10px; }
+  #statusText { max-width: 150px; }
   footer { display: none; }
 }
