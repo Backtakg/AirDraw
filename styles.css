@@ -422,3 +422,67 @@ footer {
   align-items: center;
   justify-content: center;
 }
+
+/* Compact header */
+.brand-mark {
+  width: 58px !important;
+  height: 42px !important;
+  flex: 0 0 58px;
+}
+.brand-mark .air-logo-image {
+  width: 54px !important;
+  height: 40px !important;
+  filter: drop-shadow(0 0 7px rgba(92,105,255,.22));
+}
+.brand {
+  gap: 7px;
+}
+.brand h1 {
+  font-size: 1.45rem;
+}
+.brand p {
+  font-size: .62rem;
+  margin-top: 2px;
+}
+.status-pill {
+  width: 210px;
+  max-width: 38vw;
+  min-height: 42px;
+  padding: 6px 10px;
+  gap: 7px;
+  font-size: .72rem;
+}
+.status-dot {
+  width: 7px;
+  height: 7px;
+  flex-basis: 7px;
+}
+#statusText {
+  max-width: 150px;
+  line-height: 1.08;
+  white-space: nowrap;
+}
+@media (max-width: 900px), (orientation: portrait) {
+  .brand-mark {
+    width: 50px !important;
+    height: 36px !important;
+    flex-basis: 50px;
+  }
+  .brand-mark .air-logo-image {
+    width: 47px !important;
+    height: 34px !important;
+  }
+  .brand h1 { font-size: 1.25rem; }
+  .brand p { font-size: .56rem; }
+  .status-pill {
+    width: 175px;
+    max-width: 44vw;
+    min-height: 38px;
+    padding: 5px 8px;
+    font-size: .62rem;
+  }
+  #statusText {
+    max-width: 125px;
+    line-height: 1.05;
+  }
+}
