@@ -327,3 +327,24 @@ footer {
   }
   footer { display: none; }
 }
+
+/* AirDraw logo becomes the AR Brush control. */
+.brush-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.brush-logo {
+  width: 20px;
+  height: 20px;
+  display: block;
+  flex: 0 0 20px;
+}
+@media (max-width: 900px), (orientation: portrait) {
+  .brush-logo {
+    width: 21px;
+    height: 21px;
+    flex: 0 0 21px;
+  }
+}
