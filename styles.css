@@ -129,14 +129,18 @@ video { z-index: 1; display: block; object-fit: cover; transform: scaleX(-1); op
 }
 .controls > .control-group:first-child {
   position: absolute;
-  top: 20px;
+  top: 82px;
   left: 20px;
 }
 .control-group.right {
   position: absolute;
+  top: 82px;
   right: 20px;
-  bottom: 20px;
+  bottom: auto;
   margin: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
 }
 .tool, .icon-btn, .secondary, .primary {
   border: 1px solid rgba(255,255,255,.18);
@@ -184,6 +188,7 @@ video { z-index: 1; display: block; object-fit: cover; transform: scaleX(-1); op
   left: 50%;
   transform: translateX(-50%);
   display: flex;
+  flex-direction: row;
   gap: 7px;
   align-items: center;
   padding: 4px;
