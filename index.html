@@ -7,7 +7,7 @@
   <meta name="description" content="AirDraw — write and draw in the air using your camera and hand tracking.">
   <meta http-equiv="Permissions-Policy" content="camera=(self)">
   <title>AirDraw — Draw in the Air</title>
-  <link rel="stylesheet" href="styles.css?v=25">
+  <link rel="stylesheet" href="styles.css?v=26">
 </head>
 <body>
   <main class="app">
@@ -49,19 +49,7 @@
         <section class="controls" aria-label="Drawing controls">
           <div class="control-group">
             <button class="tool active brush-tool" data-tool="brush" title="Brush" aria-label="Brush">
-              <svg class="control-icon brush-logo" viewBox="0 0 120 72" aria-hidden="true">
-                <defs>
-                  <linearGradient id="arBrushGradient" x1="10" y1="62" x2="104" y2="8">
-                    <stop offset="0" stop-color="#22d3ee"/>
-                    <stop offset=".48" stop-color="#7c5cff"/>
-                    <stop offset="1" stop-color="#ff4fd8"/>
-                  </linearGradient>
-                </defs>
-                <path d="M13 51c14 12 37 12 58-1 18-11 30-28 23-37-6-8-20-3-31 10L48 43"
-                  fill="none" stroke="url(#arBrushGradient)" stroke-width="7" stroke-linecap="round"/>
-                <path d="M43 45l16-31c2-4 7-6 10-3 3 2 3 6 1 10l-9 20"
-                  fill="none" stroke="url(#arBrushGradient)" stroke-width="7" stroke-linecap="round"/>
-              </svg>
+              <img class="air-logo-image" src="./logo.svg" alt="" aria-hidden="true">
             </button>
             <button class="tool" data-tool="eraser" title="Eraser" aria-label="Eraser">
               <svg class="control-icon" viewBox="0 0 48 48" aria-hidden="true">
