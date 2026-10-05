@@ -368,3 +368,37 @@ footer {
 .air-logo-image{width:100%;height:100%;display:block;object-fit:contain;border-radius:18px;}
 .brand-mark .air-logo-image{width:104px;height:58px;filter:drop-shadow(0 0 10px rgba(124,92,255,.22));}
 .brush-tool .air-logo-image{width:25px;height:25px;border-radius:7px;}
+
+/* Keep every AR symbol precisely centred, including the shared brush logo. */
+.controls button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.controls button .control-icon {
+  display: block;
+  flex: 0 0 auto;
+  margin: 0;
+}
+.controls button.brush-tool {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+}
+.controls button.brush-tool .air-logo-image {
+  display: block;
+  width: 25px;
+  height: 25px;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  margin: 0 auto;
+}
+@media (max-width: 900px), (orientation: portrait) {
+  .controls button.brush-tool .air-logo-image {
+    width: 24px;
+    height: 24px;
+  }
+}
