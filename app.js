@@ -93,10 +93,20 @@ const CONTROL_DWELL_MS = 650;
 
 function getAirControlAt(point) {
   const controls = document.querySelectorAll(".controls button");
+  const stageRect = stage.getBoundingClientRect();
+
+  // Hand coordinates are local to the camera/stage. getBoundingClientRect()
+  // uses viewport coordinates, so convert each AR button into stage space.
   for (const button of controls) {
     if (button.disabled || button.offsetParent === null) continue;
     const rect = button.getBoundingClientRect();
-    if (isPointInsideRect(point, rect)) return button;
+    const localRect = {
+      left: rect.left - stageRect.left,
+      right: rect.right - stageRect.left,
+      top: rect.top - stageRect.top,
+      bottom: rect.bottom - stageRect.top
+    };
+    if (isPointInsideRect(point, localRect)) return button;
   }
   return null;
 }
