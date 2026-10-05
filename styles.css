@@ -195,13 +195,13 @@ video { z-index: 1; display: block; object-fit: cover; transform: scaleX(-1); op
   pointer-events: none;
 }
 .color {
-  width: 28px; height: 28px; border-radius: 50%; border: 3px solid transparent;
+  width: 25px; height: 25px; flex: 0 0 25px; border-radius: 50%; border: 2px solid transparent;
   background: var(--c); cursor: pointer; box-shadow: 0 0 0 2px rgba(5,7,13,.72), 0 3px 16px rgba(0,0,0,.28);
   transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
   pointer-events: auto;
 }
 .color:hover { transform: scale(1.12); }
-.color.active { border-color: white; box-shadow: 0 0 0 3px rgba(5,7,13,.82), 0 0 0 5px white, 0 0 22px rgba(255,255,255,.3); }
+.color.active { border-color: white; box-shadow: 0 0 0 2px rgba(5,7,13,.82), 0 0 0 3px white, 0 0 14px rgba(255,255,255,.28); }
 
 footer {
   display: flex; justify-content: center; gap: 8px; padding: 13px;
@@ -233,15 +233,20 @@ footer {
     gap: 5px;
   }
   .colors {
-    top: 10px;
+    top: 9px;
     left: 50%;
     transform: translateX(-50%);
-    width: auto;
-    max-width: calc(100% - 90px);
+    width: calc(100% - 20px);
+    max-width: none;
     justify-content: center;
-    padding: 2px 0 5px;
-    overflow-x: auto;
-    overflow-y: visible;
+    gap: 4px;
+    padding: 4px 2px;
+    overflow: visible;
+  }
+  .color {
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
   }
   .tool span { display: none; }
   .hint { margin-top: 8px; font-size: .64rem; }
