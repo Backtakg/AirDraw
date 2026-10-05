@@ -364,3 +364,7 @@ footer {
   background: linear-gradient(135deg, #8a62ff, #623cff);
   box-shadow: 0 8px 28px rgba(98,60,255,.38);
 }
+
+.air-logo-image{width:100%;height:100%;display:block;object-fit:contain;border-radius:18px;}
+.brand-mark .air-logo-image{width:104px;height:58px;filter:drop-shadow(0 0 10px rgba(124,92,255,.22));}
+.brush-tool .air-logo-image{width:25px;height:25px;border-radius:7px;}
