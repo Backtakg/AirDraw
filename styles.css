@@ -42,7 +42,7 @@ button { font: inherit; color: inherit; }
               linear-gradient(135deg, rgba(67,181,255,.16), rgba(124,92,255,.28));
   box-shadow: 0 0 30px rgba(124,92,255,.20), inset 0 0 18px rgba(255,255,255,.04);
 }
-.brand-mark svg { width: 34px; height: 34px; display: block; }
+.brand-mark svg { width: 27px; height: 27px; display: block; }
 .brand h1 { margin: 0; font-size: 1.2rem; letter-spacing: -.02em; }
 .brand p { margin: 2px 0 0; color: var(--muted); font-size: .78rem; }
 
@@ -98,11 +98,21 @@ video { z-index: 1; display: block; object-fit: cover; transform: scaleX(-1); op
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .hint {
-  position: absolute; z-index: 4; left: 50%; bottom: 92px; transform: translateX(-50%);
-  padding: 8px 12px; border: 1px solid rgba(255,255,255,.12);
-  border-radius: 999px; background: rgba(4,6,12,.68); backdrop-filter: blur(10px);
-  color: #cbd0dd; font-size: .76rem; white-space: nowrap;
+  display: block;
+  width: fit-content;
+  max-width: calc(100% - 24px);
+  margin: 10px auto 0;
+  padding: 5px 9px;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 999px;
+  background: rgba(13,17,28,.78);
+  color: #9ca3b5;
+  font-size: .68rem;
+  line-height: 1.25;
+  text-align: center;
+  white-space: nowrap;
 }
+.hint span { color: #fff; font-weight: 700; }
 .hint span { color: white; font-weight: 700; }
 
 /* Camera-native AR controls: no toolbar card. Each control floats directly over the camera. */
@@ -138,7 +148,7 @@ video { z-index: 1; display: block; object-fit: cover; transform: scaleX(-1); op
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
-.tool { min-width: 62px; min-height: 52px; padding: 9px 13px; font-size: .9rem; }
+.tool { min-width: 46px; min-height: 38px; padding: 6px 8px; font-size: .72rem; }
 .tool:hover, .icon-btn:hover, .secondary:hover { background: rgba(20, 25, 40, .76); }
 .tool.active {
   border-color: rgba(124,92,255,.85);
@@ -156,9 +166,9 @@ video { z-index: 1; display: block; object-fit: cover; transform: scaleX(-1); op
   transform: scale(.92);
   filter: brightness(1.35);
 }
-.icon-btn { width: 52px; height: 52px; font-size: 1.25rem; }
+.icon-btn { width: 38px; height: 38px; font-size: .95rem; }
 .icon-btn:disabled { opacity: .32; cursor: default; }
-.secondary { min-height: 52px; padding: 10px 16px; font-size: .9rem; }
+.secondary { min-height: 38px; padding: 6px 9px; font-size: .72rem; }
 .primary {
   border-color: rgba(151,130,255,.35);
   background: linear-gradient(135deg, rgba(128,100,255,.92), rgba(93,67,233,.92));
@@ -166,7 +176,7 @@ video { z-index: 1; display: block; object-fit: cover; transform: scaleX(-1); op
   box-shadow: 0 10px 30px rgba(98,70,230,.35);
 }
 .primary:hover { filter: brightness(1.08); transform: translateY(-2px); }
-.primary.small { min-height: 52px; padding: 10px 17px; }
+.primary.small { min-height: 38px; padding: 6px 10px; }
 
 .colors {
   position: absolute;
@@ -174,13 +184,13 @@ video { z-index: 1; display: block; object-fit: cover; transform: scaleX(-1); op
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 13px;
+  gap: 7px;
   align-items: center;
   padding: 4px;
   pointer-events: none;
 }
 .color {
-  width: 42px; height: 42px; border-radius: 50%; border: 3px solid transparent;
+  width: 28px; height: 28px; border-radius: 50%; border: 3px solid transparent;
   background: var(--c); cursor: pointer; box-shadow: 0 0 0 2px rgba(5,7,13,.72), 0 3px 16px rgba(0,0,0,.28);
   transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
   pointer-events: auto;
@@ -205,6 +215,6 @@ footer {
     order: -1; width: 100%; justify-content: center; padding: 2px 0 5px;
   }
   .tool span { display: none; }
-  .hint { bottom: 38%; }
+  .hint { margin-top: 8px; font-size: .64rem; }
   footer { display: none; }
 }
