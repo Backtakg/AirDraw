@@ -7,7 +7,7 @@
   <meta name="description" content="AirDraw — write and draw in the air using your camera and hand tracking.">
   <meta http-equiv="Permissions-Policy" content="camera=(self)">
   <title>AirDraw — Draw in the Air</title>
-  <link rel="stylesheet" href="styles.css?v=11">
+  <link rel="stylesheet" href="styles.css?v=12">
 </head>
 <body>
   <main class="app">
@@ -58,10 +58,6 @@
           <p id="loadingText">Starting camera…</p>
         </div>
 
-        <div class="hint" id="hint" hidden>
-          <span>Index finger</span> to draw · <span>Hold on a control</span> to select
-        </div>
-
         <section class="controls" aria-label="Drawing controls">
           <div class="control-group">
             <button class="tool active" data-tool="brush" title="Brush">✎ <span>Brush</span></button>
@@ -87,6 +83,10 @@
         </section>
       </div>
     </section>
+
+    <div class="hint" id="hint" hidden>
+      <span>Index finger</span> to draw · <span>Hold on a control</span> to select
+    </div>
 
     <footer>
       <span>AirDraw</span>
