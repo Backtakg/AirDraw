@@ -1,23 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 110">
 <defs>
-  <linearGradient id="g" x1="35" y1="205" x2="220" y2="35" gradientUnits="userSpaceOnUse">
-    <stop offset="0" stop-color="#16c9ff"/>
-    <stop offset=".52" stop-color="#6f78ff"/>
-    <stop offset="1" stop-color="#ff32dc"/>
-  </linearGradient>
-  <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
-    <feGaussianBlur stdDeviation="5" result="b"/>
-    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-  </filter>
+ <linearGradient id="g" x1="18" y1="92" x2="140" y2="18" gradientUnits="userSpaceOnUse">
+  <stop stop-color="#16c9ff"/><stop offset=".52" stop-color="#7375ff"/><stop offset="1" stop-color="#ff39d5"/>
+ </linearGradient>
+ <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
 </defs>
-<rect width="256" height="256" rx="56" fill="#060a22"/>
-<g filter="url(#glow)">
-  <path d="M34 158c18 51 92 64 157 26 35-21 52-47 38-69-9-14-25-20-43-20"
-        fill="none" stroke="url(#g)" stroke-width="17" stroke-linecap="round"/>
-  <path d="M74 167c24-2 48-11 60-28 8-11 10-24 6-37"
-        fill="none" stroke="url(#g)" stroke-width="16" stroke-linecap="round"/>
-  <path d="M125 101 176 46c8-9 19-14 27-8 7 6 5 17-1 26l-48 62c-9 12-22 14-32 5-9-8-8-19 3-30Z"
-        fill="url(#g)"/>
-  <path d="M128 102 165 62" stroke="#eef4ff" stroke-opacity=".55" stroke-width="5" stroke-linecap="round"/>
+<g fill="none" stroke="url(#g)" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)">
+ <path d="M15 73c20 27 65 31 105 10 23-12 35-29 28-42-5-10-15-14-27-15" stroke-width="10"/>
+ <path d="M59 76c16-2 30-9 36-19 4-7 5-14 2-21" stroke-width="9"/>
+ <path d="M92 42 125 9c5-5 11-6 15-2 4 4 2 10-1 15l-30 39c-6 8-14 9-21 3-5-5-4-12 4-22Z" fill="url(#g)" stroke="none"/>
+ <path d="m96 43 24-25" stroke="#fff" stroke-opacity=".65" stroke-width="3"/>
 </g>
 </svg>
