@@ -32,6 +32,7 @@ let redoStack = [];
 let activeStroke = null;
 let smoothedPoint = null;
 let started = false;
+let selectedAirControl = null;
 
 function setStatus(text, live = false) {
   statusText.textContent = text;
@@ -73,7 +74,25 @@ function resizeCanvases() {
 
 function canvasPoint(landmark) {
   const rect = stage.getBoundingClientRect();
-  return { x: (1 - landmark.x) * rect.width, y: landmark.y * rect.height };
+  const videoWidth = video.videoWidth || rect.width;
+  const videoHeight = video.videoHeight || rect.height;
+
+  // MediaPipe reports the fingertip in the original camera frame, while the
+  // video is displayed with object-fit: cover and mirrored. Map landmark 8
+  // into the exact visible camera pixels before drawing/selection.
+  const scale = Math.max(rect.width / videoWidth, rect.height / videoHeight);
+  const displayedWidth = videoWidth * scale;
+  const displayedHeight = videoHeight * scale;
+  const offsetX = (rect.width - displayedWidth) / 2;
+  const offsetY = (rect.height - displayedHeight) / 2;
+
+  const cameraX = landmark.x * displayedWidth + offsetX;
+  const cameraY = landmark.y * displayedHeight + offsetY;
+
+  return {
+    x: rect.width - cameraX,
+    y: cameraY
+  };
 }
 
 function distance(a, b) {
@@ -313,15 +332,11 @@ function processResults(results) {
     return;
   }
 
-  // The index fingertip is the only interaction point.
+  // Landmark 8 is MediaPipe's actual index-finger TIP.
+  // Use it directly: no laggy smoothing, so the AR cursor stays on the
+  // fingertip itself.
   const raw = canvasPoint(hand[8]);
-  const alpha = 0.42;
-  smoothedPoint = smoothedPoint
-    ? {
-        x: smoothedPoint.x + (raw.x - smoothedPoint.x) * alpha,
-        y: smoothedPoint.y + (raw.y - smoothedPoint.y) * alpha
-      }
-    : raw;
+  smoothedPoint = raw;
 
   const control = getAirControlAt(smoothedPoint);
   updateAirControlHover(control);
@@ -394,9 +409,9 @@ function setupHands(assetBase) {
 
   hands.setOptions({
     maxNumHands: 1,
-    modelComplexity: 0,
-    minDetectionConfidence: 0.5,
-    minTrackingConfidence: 0.5
+    modelComplexity: 1,
+    minDetectionConfidence: 0.55,
+    minTrackingConfidence: 0.55
   });
 
   hands.onResults(processResults);
