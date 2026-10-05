@@ -264,7 +264,7 @@ footer {
     width: calc(100% - 12px);
     max-width: none;
     justify-content: center;
-    gap: 2px;
+    gap: 5px;
     padding: 3px 1px;
     overflow: visible;
   }
@@ -486,3 +486,6 @@ footer {
     line-height: 1.05;
   }
 }
+
+/* Small, consistent spacing between the AR colour swatches. */
+.colors .color { margin: 0; }
