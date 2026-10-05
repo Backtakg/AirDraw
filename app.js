@@ -33,6 +33,8 @@ let activeStroke = null;
 let smoothedPoint = null;
 let started = false;
 let selectedAirControl = null;
+let fistHeld = false;
+let drawPaused = false;
 
 function setStatus(text, live = false) {
   statusText.textContent = text;
@@ -98,6 +100,19 @@ function canvasPoint(landmark) {
 function distance(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
+
+function isFist(hand) {
+  // A fist has the four finger tips close to the palm while the thumb
+  // is also folded inward. Use normalized palm size for distance stability.
+  const wrist = hand[0];
+  const palm = Math.max(distance(wrist, hand[9]), 0.001);
+  const fingertips = [8, 12, 16, 20];
+  const folded = fingertips.every(i => distance(hand[i], wrist) / palm < 1.35);
+  const thumbFolded = distance(hand[4], hand[5]) / palm < 0.85;
+  return folded && thumbFolded;
+}
+
+
 
 function isPointInsideRect(point, rect) {
   return point.x >= rect.left && point.x <= rect.right &&
@@ -375,11 +390,22 @@ function processResults(results) {
   const control = getAirControlAt(smoothedPoint);
   updateAirControlHover(control);
 
+  // Fist = pause/hold drawing. Open hand = resume drawing.
+  const fist = isFist(hand);
+  if (fist) {
+    fistHeld = true;
+    drawPaused = true;
+    endStroke();
+  } else if (fistHeld) {
+    fistHeld = false;
+    drawPaused = false;
+  }
+
   // Point at a control and hold still briefly to select it. No pinch required.
   const selected = updateAirControlDwell(control);
   drawCursor(smoothedPoint, Boolean(control));
 
-  if (control) {
+  if (control || drawPaused || fist) {
     endStroke();
     return;
   }
