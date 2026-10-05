@@ -402,3 +402,23 @@ footer {
     height: 24px;
   }
 }
+
+/* Final logo + tool icon polish */
+.brand-mark .air-logo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 0;
+  filter: drop-shadow(0 0 12px rgba(92,105,255,.28));
+}
+.brush-pen-icon {
+  width: 24px !important;
+  height: 24px !important;
+  display: block;
+  margin: auto;
+}
+.controls button.brush-tool {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
