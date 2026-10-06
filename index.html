@@ -68,8 +68,7 @@
             </button>
             <button class="tool" data-tool="eraser" title="Eraser" aria-label="Eraser">
               <svg class="control-icon" viewBox="0 0 48 48" aria-hidden="true">
-                <path d="M18 37 8 27c-2-2-2-5 0-7l15-15c2-2 5-2 7 0l10 10c2 2 2 5 0 7L25 37H18Z"
-                  fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/>
+                <path d="M18 37 8 27c-2-2-2-5 0-7l15-15c2-2 5-2 7 0l10 10c2 2 2 5 0 7L25 37H18Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/>
                 <path d="m27 12 9 9" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
               </svg>
             </button>
@@ -110,8 +109,9 @@
             <input id="customColorInput" type="color" value="#ffffff" title="Choose custom color" aria-label="Choose custom color">
             <button class="palette-tool" id="rainbowColorButton" type="button" title="Rainbow mode" aria-label="Rainbow mode">🌈</button>
             <button class="palette-tool" id="gradientColorButton" type="button" title="Gradient colors" aria-label="Gradient colors">▥</button>
-            <div class="recent-colors" id="recentColors" aria-label="Recently used colors">            <button class="palette-tool particle-button" id="particleButton" type="button" title="Particle effects: Off" aria-label="Particle effects: Off">•</button>
-</div>
+            <div class="recent-colors" id="recentColors" aria-label="Recently used colors">
+              <button class="palette-tool particle-button" id="particleButton" type="button" title="Particle effects: Off" aria-label="Particle effects: Off">•</button>
+            </div>
           </div>
 
           <div class="control-group right">
@@ -202,6 +202,12 @@
     </footer>
   </main>
 
+  <script>
+    // Particle effects are consumed by app.js; define them before app.js loads.
+    var particleEffect = "none";
+    var PARTICLE_EFFECTS = ["none", "sparks", "stars", "smoke", "fire", "confetti"];
+    var particleSeed = Math.floor(Math.random() * 1000000);
+  </script>
   <script src="app.js?v=31"></script>
 </body>
 </html>
