@@ -16,6 +16,14 @@ const undoButton = document.querySelector("#undoButton");
 const redoButton = document.querySelector("#redoButton");
 const clearButton = document.querySelector("#clearButton");
 const saveButton = document.querySelector("#saveButton");
+const sizeDownButton = document.querySelector("#sizeDownButton");
+const sizeUpButton = document.querySelector("#sizeUpButton");
+const sizeDisplay = document.querySelector("#sizeDisplay");
+const effectButton = document.querySelector("#effectButton");
+const galleryButton = document.querySelector("#galleryButton");
+const galleryModal = document.querySelector("#galleryModal");
+const galleryClose = document.querySelector("#galleryClose");
+const galleryGrid = document.querySelector("#galleryGrid");
 
 let hands = null;
 let stream = null;
@@ -26,6 +34,8 @@ let processing = false;
 let tool = "brush";
 let color = "#ffffff";
 let brushSize = 7;
+let brushEffect = "neon";
+const EFFECTS = ["neon", "normal", "soft"];
 let eraserSize = 38;
 let strokes = [];
 let redoStack = [];
@@ -213,7 +223,13 @@ function drawCursor(point, active) {
 }
 
 function beginStroke(point) {
-  activeStroke = { tool, color, size: tool === "eraser" ? eraserSize : brushSize, points: [point] };
+  activeStroke = {
+    tool,
+    color,
+    size: tool === "eraser" ? eraserSize : brushSize,
+    effect: brushEffect,
+    points: [point]
+  };
   strokes.push(activeStroke);
   redoStack = [];
   updateHistoryButtons();
@@ -282,8 +298,15 @@ function redraw() {
     } else {
       drawCtx.globalCompositeOperation = "source-over";
       drawCtx.strokeStyle = stroke.color;
-      drawCtx.shadowColor = stroke.color;
-      drawCtx.shadowBlur = Math.min(stroke.size * 2.2, 28);
+      if (stroke.effect === "neon") {
+        drawCtx.shadowColor = stroke.color;
+        drawCtx.shadowBlur = Math.min(stroke.size * 2.2, 28);
+      } else if (stroke.effect === "soft") {
+        drawCtx.shadowColor = stroke.color;
+        drawCtx.shadowBlur = Math.min(stroke.size * 0.9, 12);
+      } else {
+        drawCtx.shadowBlur = 0;
+      }
     }
     if (stroke.points.length === 1) {
       const p = stroke.points[0];
@@ -363,11 +386,94 @@ function savePng() {
     ctx.restore();
   }
   ctx.restore();
+  const dataUrl = out.toDataURL("image/png");
   const link = document.createElement("a");
   link.download = "airdraw.png";
-  link.href = out.toDataURL("image/png");
+  link.href = dataUrl;
   link.click();
+  saveToGallery(dataUrl);
 }
+
+function updateSizeDisplay() {
+  sizeDisplay.textContent = brushSize;
+}
+
+function changeBrushSize(delta) {
+  stopDrawingForUI();
+  brushSize = Math.max(2, Math.min(32, brushSize + delta));
+  updateSizeDisplay();
+  redraw();
+}
+
+function cycleEffect() {
+  stopDrawingForUI();
+  const index = EFFECTS.indexOf(brushEffect);
+  brushEffect = EFFECTS[(index + 1) % EFFECTS.length];
+  effectButton.textContent = brushEffect === "neon" ? "✦" : brushEffect === "normal" ? "•" : "◌";
+  effectButton.title = `Effect: ${brushEffect}`;
+}
+
+function galleryItems() {
+  try {
+    return JSON.parse(localStorage.getItem("airdraw-gallery") || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveToGallery(dataUrl) {
+  const items = galleryItems();
+  items.unshift({ id: Date.now(), dataUrl });
+  try {
+    localStorage.setItem("airdraw-gallery", JSON.stringify(items.slice(0, 12)));
+  } catch {
+    // Storage can be full; PNG download still succeeds.
+  }
+}
+
+function renderGallery() {
+  const items = galleryItems();
+  galleryGrid.innerHTML = "";
+  if (!items.length) {
+    galleryGrid.innerHTML = '<div class="gallery-empty">No saved drawings yet.<br>Save a drawing to add it here.</div>';
+    return;
+  }
+  items.forEach((item, index) => {
+    const card = document.createElement("div");
+    card.className = "gallery-card";
+    card.innerHTML = `<img src="${item.dataUrl}" alt="Saved AirDraw drawing"><div class="gallery-card-actions"><button data-index="${index}" class="gallery-download">Download</button><button data-remove="${index}" class="gallery-delete">Delete</button></div>`;
+    galleryGrid.appendChild(card);
+  });
+}
+
+function openGallery() {
+  stopDrawingForUI();
+  renderGallery();
+  galleryModal.hidden = false;
+}
+
+function closeGallery() {
+  galleryModal.hidden = true;
+}
+
+galleryGrid.addEventListener("click", event => {
+  const download = event.target.closest("[data-index]");
+  const remove = event.target.closest("[data-remove]");
+  const items = galleryItems();
+  if (download) {
+    const item = items[Number(download.dataset.index)];
+    if (!item) return;
+    const link = document.createElement("a");
+    link.download = "airdraw-gallery.png";
+    link.href = item.dataUrl;
+    link.click();
+  }
+  if (remove) {
+    items.splice(Number(remove.dataset.remove), 1);
+    localStorage.setItem("airdraw-gallery", JSON.stringify(items));
+    renderGallery();
+  }
+});
 
 function processResults(results) {
   cursorCtx.clearRect(0, 0, stage.clientWidth, stage.clientHeight);
@@ -694,6 +800,15 @@ undoButton.addEventListener("click", () => { stopDrawingForUI(); undo(); });
 redoButton.addEventListener("click", () => { stopDrawingForUI(); redo(); });
 clearButton.addEventListener("click", () => { stopDrawingForUI(); clearDrawing(); });
 saveButton.addEventListener("click", () => { stopDrawingForUI(); savePng(); });
+sizeDownButton.addEventListener("click", () => changeBrushSize(-2));
+sizeUpButton.addEventListener("click", () => changeBrushSize(2));
+effectButton.addEventListener("click", cycleEffect);
+galleryButton.addEventListener("click", openGallery);
+galleryClose.addEventListener("click", closeGallery);
+galleryModal.addEventListener("click", event => {
+  if (event.target === galleryModal) closeGallery();
+});
+updateSizeDisplay();
 
 window.addEventListener("resize", resizeCanvases);
 window.addEventListener("beforeunload", stop);
