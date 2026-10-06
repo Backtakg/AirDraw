@@ -29,6 +29,14 @@ const opacityUpButton = document.querySelector("#opacityUpButton");
 const opacityDisplay = document.querySelector("#opacityDisplay");
 const shapeButton = document.querySelector("#shapeButton");
 const gestureToast = document.querySelector("#gestureToast");
+const snapshotButton = document.querySelector("#snapshotButton");
+const recordButton = document.querySelector("#recordButton");
+const textButton = document.querySelector("#textButton");
+const textModal = document.querySelector("#textModal");
+const textClose = document.querySelector("#textClose");
+const recognizeTextButton = document.querySelector("#recognizeTextButton");
+const recognizedText = document.querySelector("#recognizedText");
+const textStatus = document.querySelector("#textStatus");
 
 let hands = null;
 let stream = null;
@@ -59,6 +67,13 @@ let selectedAirControl = null;
 let fistHeld = false;
 let drawPaused = false;
 let uiInteractionLock = false;
+let recording = false;
+let mediaRecorder = null;
+let recordingChunks = [];
+let recordingCanvas = null;
+let recordingCtx = null;
+let recordingFrameId = 0;
+let tesseractLoading = null;
 
 function setStatus(text, live = false) {
   statusText.textContent = text;
@@ -433,6 +448,219 @@ function savePng() {
   link.href = dataUrl;
   link.click();
   saveToGallery(dataUrl);
+}
+
+function drawCompositeFrame(ctx, canvasWidth, canvasHeight, includeCursor = true) {
+  if (!video.videoWidth || !video.videoHeight) return false;
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const scale = Math.max(canvasWidth / vw, canvasHeight / vh);
+  const dw = vw * scale, dh = vh * scale;
+  const ox = (canvasWidth - dw) / 2, oy = (canvasHeight - dh) / 2;
+  ctx.save();
+  ctx.fillStyle = "#03050a";
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  ctx.translate(canvasWidth, 0);
+  ctx.scale(-1, 1);
+  ctx.globalAlpha = 0.76;
+  ctx.drawImage(video, ox, oy, dw, dh);
+  ctx.restore();
+  ctx.globalAlpha = 1;
+  ctx.drawImage(drawCanvas, 0, 0, canvasWidth, canvasHeight);
+  if (includeCursor) ctx.drawImage(cursorCanvas, 0, 0, canvasWidth, canvasHeight);
+  return true;
+}
+
+function downloadDataUrl(dataUrl, filename) {
+  const link = document.createElement("a");
+  link.download = filename;
+  link.href = dataUrl;
+  link.click();
+}
+
+function takeSnapshot() {
+  stopDrawingForUI();
+  const rect = stage.getBoundingClientRect();
+  const out = document.createElement("canvas");
+  out.width = Math.max(640, Math.round(rect.width * 2));
+  out.height = Math.max(360, Math.round(rect.height * 2));
+  const ctx = out.getContext("2d");
+  if (!drawCompositeFrame(ctx, out.width, out.height, false)) {
+    showGesture("📸 Camera not ready");
+    return;
+  }
+  const dataUrl = out.toDataURL("image/png", 1);
+  downloadDataUrl(dataUrl, "airdraw-snapshot.png");
+  saveToGallery(dataUrl);
+  showGesture("📸 Snapshot saved");
+}
+
+function recordingLoop() {
+  if (!recording || !recordingCanvas || !recordingCtx) return;
+  drawCompositeFrame(recordingCtx, recordingCanvas.width, recordingCanvas.height, true);
+  recordingFrameId = requestAnimationFrame(recordingLoop);
+}
+
+function chooseRecordingMime() {
+  const types = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
+  return types.find(type => window.MediaRecorder?.isTypeSupported?.(type)) || "";
+}
+
+function startRecording() {
+  stopDrawingForUI();
+  if (recording) return;
+  if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) {
+    showGesture("🎥 Recording is not supported here");
+    return;
+  }
+  if (!stream || video.readyState < 2) {
+    showGesture("🎥 Start the camera first");
+    return;
+  }
+  const rect = stage.getBoundingClientRect();
+  recordingCanvas = document.createElement("canvas");
+  recordingCanvas.width = Math.max(640, Math.round(rect.width * 1.5));
+  recordingCanvas.height = Math.max(360, Math.round(rect.height * 1.5));
+  recordingCtx = recordingCanvas.getContext("2d");
+  const capture = recordingCanvas.captureStream(30);
+  const mimeType = chooseRecordingMime();
+  try {
+    mediaRecorder = mimeType
+      ? new MediaRecorder(capture, { mimeType, videoBitsPerSecond: 7000000 })
+      : new MediaRecorder(capture);
+  } catch {
+    showGesture("🎥 Could not start recording");
+    recordingCanvas = null;
+    recordingCtx = null;
+    return;
+  }
+  recordingChunks = [];
+  mediaRecorder.ondataavailable = event => {
+    if (event.data?.size) recordingChunks.push(event.data);
+  };
+  mediaRecorder.onstop = () => {
+    const type = mediaRecorder?.mimeType || mimeType || "video/webm";
+    const blob = new Blob(recordingChunks, { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.download = "airdraw-session.webm";
+    link.href = url;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    recordingChunks = [];
+  };
+  mediaRecorder.start(1000);
+  recording = true;
+  recordButton.textContent = "■";
+  recordButton.title = "Stop recording";
+  recordButton.classList.add("recording");
+  showGesture("🔴 Recording started");
+  recordingLoop();
+}
+
+function stopRecording() {
+  if (!recording || !mediaRecorder) return;
+  recording = false;
+  cancelAnimationFrame(recordingFrameId);
+  mediaRecorder.stop();
+  recordButton.textContent = "●";
+  recordButton.title = "Record session";
+  recordButton.classList.remove("recording");
+  showGesture("🎥 Recording saved");
+  mediaRecorder = null;
+  recordingCanvas = null;
+  recordingCtx = null;
+}
+
+function openTextRecognition() {
+  stopDrawingForUI();
+  recognizedText.value = "";
+  textStatus.textContent = "Draw a letter or word with ☝️, then press Recognize.";
+  textModal.hidden = false;
+}
+
+function closeTextRecognition() {
+  textModal.hidden = true;
+}
+
+function renderWritingCanvas() {
+  const source = document.createElement("canvas");
+  const rect = stage.getBoundingClientRect();
+  source.width = Math.max(900, Math.round(rect.width * 2));
+  source.height = Math.max(500, Math.round(rect.height * 2));
+  const ctx = source.getContext("2d");
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, source.width, source.height);
+  ctx.save();
+  ctx.scale(2, 2);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  for (const stroke of strokes) {
+    if (!stroke.points?.length || stroke.tool === "eraser") continue;
+    ctx.save();
+    ctx.lineWidth = Math.max(stroke.size, 8);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = "#111";
+    ctx.shadowBlur = 0;
+    if (stroke.shape && stroke.shape !== "freehand" && stroke.points.length >= 2) {
+      drawShape(ctx, stroke);
+    } else if (stroke.points.length === 1) {
+      const p = stroke.points[0];
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, Math.max(stroke.size / 2, 4), 0, Math.PI * 2);
+      ctx.fillStyle = "#111";
+      ctx.fill();
+    } else {
+      drawSmoothStroke(ctx, stroke.points);
+    }
+    ctx.restore();
+  }
+  ctx.restore();
+  return source;
+}
+
+async function loadTesseract() {
+  if (window.Tesseract) return window.Tesseract;
+  if (tesseractLoading) return tesseractLoading;
+  tesseractLoading = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+    script.crossOrigin = "anonymous";
+    script.onload = () => resolve(window.Tesseract);
+    script.onerror = () => reject(new Error("Text recognition library could not be loaded."));
+    document.head.appendChild(script);
+  });
+  return tesseractLoading;
+}
+
+async function recognizeAirText() {
+  stopDrawingForUI();
+  if (!strokes.some(stroke => stroke.points?.length && stroke.tool !== "eraser")) {
+    textStatus.textContent = "Draw something first.";
+    return;
+  }
+  recognizeTextButton.disabled = true;
+  textStatus.textContent = "Loading handwriting recognition…";
+  try {
+    const Tesseract = await loadTesseract();
+    const source = renderWritingCanvas();
+    const result = await Tesseract.recognize(source, "eng", {
+      logger: info => {
+        if (info.status === "recognizing text" && typeof info.progress === "number") {
+          textStatus.textContent = "Recognizing… " + Math.round(info.progress * 100) + "%";
+        } else if (info.status) {
+          textStatus.textContent = "Recognizing… " + info.status;
+        }
+      }
+    });
+    const text = (result?.data?.text || "").replace(/\s+/g, " ").trim();
+    recognizedText.value = text || "No text recognized. Try larger, clearer block letters.";
+    textStatus.textContent = text ? "Recognition complete — you can edit or copy the result." : "No text recognized. Try larger, clearer block letters.";
+  } catch (error) {
+    console.error("Air writing recognition error:", error);
+    textStatus.textContent = "Recognition could not load. Check your internet connection and try again.";
+  } finally {
+    recognizeTextButton.disabled = false;
+  }
 }
 
 function updateSizeDisplay() {
@@ -1001,6 +1229,24 @@ document.querySelectorAll(".color").forEach(button => {
   });
 });
 
+snapshotButton.addEventListener("click", takeSnapshot);
+recordButton.addEventListener("click", () => recording ? stopRecording() : startRecording());
+textButton.addEventListener("click", openTextRecognition);
+textClose.addEventListener("click", closeTextRecognition);
+recognizeTextButton.addEventListener("click", recognizeAirText);
+document.getElementById("copyTextButton").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(recognizedText.value);
+    showGesture("📋 Text copied");
+  } catch {
+    recognizedText.select();
+    document.execCommand("copy");
+    showGesture("📋 Text copied");
+  }
+});
+textModal.addEventListener("click", event => {
+  if (event.target === textModal) closeTextRecognition();
+});
 startButton.addEventListener("click", start);
 undoButton.addEventListener("click", () => { stopDrawingForUI(); undo(); });
 redoButton.addEventListener("click", () => { stopDrawingForUI(); redo(); });
@@ -1021,7 +1267,7 @@ galleryModal.addEventListener("click", event => {
 updateSizeDisplay();
 
 window.addEventListener("resize", resizeCanvases);
-window.addEventListener("beforeunload", stop);
+window.addEventListener("beforeunload", () => { try { if (recording) mediaRecorder?.stop(); } catch {} stop(); });
 
 window.addEventListener("DOMContentLoaded", () => {
   setTimeout(() => start(), 250);

@@ -81,6 +81,9 @@
             <button class="icon-btn feature-btn opacity-display" id="opacityDisplay" title="Opacity" aria-label="Opacity">100</button>
             <button class="icon-btn feature-btn" id="opacityUpButton" title="Raise opacity" aria-label="Raise opacity">◑</button>
             <button class="icon-btn feature-btn" id="shapeButton" title="Shape mode" aria-label="Shape mode">○</button>
+            <button class="icon-btn feature-btn capture-btn" id="snapshotButton" title="Take Snapshot" aria-label="Take Snapshot">📸</button>
+            <button class="icon-btn feature-btn capture-btn" id="recordButton" title="Record session" aria-label="Record session">●</button>
+            <button class="icon-btn feature-btn capture-btn" id="textButton" title="Air writing to text" aria-label="Air writing to text">🔤</button>
           </div>
 
           <div class="colors" aria-label="Colors">
@@ -125,6 +128,24 @@
       </div>
     </div>
 
+    <div class="text-modal" id="textModal" hidden>
+      <div class="text-panel">
+        <div class="text-header">
+          <div>
+            <strong>🔤 Air Writing → Text</strong>
+            <span>Write a letter or word with ☝️, then press Recognize.</span>
+          </div>
+          <button class="icon-btn text-close" id="textClose" aria-label="Close text recognition">×</button>
+        </div>
+        <textarea id="recognizedText" spellcheck="false" placeholder="Recognized text will appear here…"></textarea>
+        <p class="text-status" id="textStatus">Draw a letter or word with ☝️, then press Recognize.</p>
+        <div class="text-actions">
+          <button class="secondary text-action" id="recognizeTextButton">Recognize</button>
+          <button class="primary text-action" id="copyTextButton" type="button">Copy</button>
+        </div>
+      </div>
+    </div>
+
     <div class="gesture-toast" id="gestureToast" hidden></div>
     <div class="hint" id="hint" hidden>
       <span>☝️ Index</span> draw · <span>✊ Fist</span> pause · <span>✌️ Two fingers</span> tool · <span>👍</span> undo · <span>🤏 Pinch</span> select · <span>🖐️ Palm</span> pause/clear
@@ -137,6 +158,6 @@
     </footer>
   </main>
 
-  <script src="app.js?v=18"></script>
+  <script src="app.js?v=19"></script>
 </body>
 </html>

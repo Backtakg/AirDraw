@@ -582,3 +582,15 @@ footer {
  .gesture-toast{top:76px;font-size:.62rem;padding:6px 10px}
  .feature-tools{flex-wrap:wrap;max-width:145px}
 }
+
+.capture-btn.recording{border-color:rgba(255,70,90,.9)!important;background:rgba(180,30,55,.42)!important;box-shadow:0 0 24px rgba(255,55,80,.35);animation:recordingPulse 1s ease-in-out infinite}
+@keyframes recordingPulse{50%{filter:brightness(1.35)}}
+.text-modal{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:18px;background:rgba(0,0,0,.76);backdrop-filter:blur(12px)}
+.text-panel{width:min(620px,100%);padding:18px;border:1px solid rgba(255,255,255,.14);border-radius:22px;background:rgba(10,13,22,.97);box-shadow:0 25px 90px rgba(0,0,0,.62)}
+.text-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+.text-header strong{display:block;font-size:1.1rem}.text-header span{display:block;color:var(--muted);font-size:.72rem;line-height:1.45;margin-top:4px}
+.text-close{width:42px;height:42px;min-width:42px;min-height:42px}
+#recognizedText{width:100%;min-height:150px;resize:vertical;padding:14px;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:#05070d;color:#fff;font:500 1.35rem/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;outline:none}
+#recognizedText:focus{border-color:rgba(124,92,255,.7);box-shadow:0 0 0 3px rgba(124,92,255,.12)}
+.text-status{min-height:20px;margin:10px 2px;color:var(--muted);font-size:.75rem}.text-actions{display:flex;gap:10px;justify-content:flex-end}.text-action{min-width:110px;min-height:42px}
+@media(max-width:900px),(orientation:portrait){.feature-tools{max-width:190px}.text-panel{padding:13px;border-radius:17px}.text-actions{justify-content:stretch}.text-action{flex:1;min-width:0}}
