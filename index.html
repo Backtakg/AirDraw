@@ -71,6 +71,14 @@
             </button>
           </div>
 
+          <div class="feature-tools" aria-label="Brush options">
+            <button class="icon-btn feature-btn" id="sizeDownButton" title="Smaller brush" aria-label="Smaller brush">−</button>
+            <button class="icon-btn feature-btn size-display" id="sizeDisplay" title="Brush size" aria-label="Brush size">7</button>
+            <button class="icon-btn feature-btn" id="sizeUpButton" title="Larger brush" aria-label="Larger brush">+</button>
+            <button class="icon-btn feature-btn" id="effectButton" title="Brush effect" aria-label="Brush effect">✦</button>
+            <button class="icon-btn feature-btn" id="galleryButton" title="Gallery" aria-label="Gallery">▣</button>
+          </div>
+
           <div class="colors" aria-label="Colors">
             <button class="color active" data-color="#ffffff" style="--c:#ffffff" title="White"></button>
             <button class="color" data-color="#ff3b81" style="--c:#ff3b81" title="Pink"></button>
@@ -103,6 +111,16 @@
         </section> </div>
     </section>
 
+    <div class="gallery-modal" id="galleryModal" hidden>
+      <div class="gallery-panel">
+        <div class="gallery-header">
+          <div><strong>AirDraw Gallery</strong><span>Saved locally on this device</span></div>
+          <button class="icon-btn gallery-close" id="galleryClose" aria-label="Close gallery">×</button>
+        </div>
+        <div class="gallery-grid" id="galleryGrid"></div>
+      </div>
+    </div>
+
     <div class="hint" id="hint" hidden>
       <span>Index finger</span> to draw · <span>Make a fist</span> to pause · <span>Open hand</span> to draw again
     </div>
@@ -114,6 +132,6 @@
     </footer>
   </main>
 
-  <script src="app.js?v=15"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>
