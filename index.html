@@ -7,7 +7,7 @@
   <meta name="description" content="AirDraw — write and draw in the air using your camera and hand tracking.">
   <meta http-equiv="Permissions-Policy" content="camera=(self)">
   <title>AirDraw — Draw in the Air</title>
-  <link rel="stylesheet" href="styles.css?v=29">
+  <link rel="stylesheet" href="styles.css?v=30">
 </head>
 <body>
   <main class="app">
@@ -101,6 +101,11 @@
             <button class="color" data-color="#5865f2" style="--c:#5865f2" title="Indigo"></button>
             <button class="color" data-color="#a978ff" style="--c:#a978ff" title="Purple"></button>
             <button class="color" data-color="#ff4fd8" style="--c:#ff4fd8" title="Magenta"></button>
+            <button class="palette-tool" id="customColorButton" type="button" title="Custom color" aria-label="Custom color">🎨</button>
+            <input id="customColorInput" type="color" value="#ffffff" title="Choose custom color" aria-label="Choose custom color">
+            <button class="palette-tool" id="rainbowColorButton" type="button" title="Rainbow mode" aria-label="Rainbow mode">🌈</button>
+            <button class="palette-tool" id="gradientColorButton" type="button" title="Gradient colors" aria-label="Gradient colors">▥</button>
+            <div class="recent-colors" id="recentColors" aria-label="Recently used colors"></div>
           </div>
 
           <div class="control-group right">
@@ -160,6 +165,6 @@
     </footer>
   </main>
 
-  <script src="app.js?v=21"></script>
+  <script src="app.js?v=22"></script>
 </body>
 </html>

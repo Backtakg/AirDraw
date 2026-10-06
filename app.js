@@ -39,6 +39,11 @@ const recognizedText = document.querySelector("#recognizedText");
 const textStatus = document.querySelector("#textStatus");
 const backgroundButton = document.querySelector("#backgroundButton");
 const backgroundInput = document.querySelector("#backgroundInput");
+const customColorButton = document.querySelector("#customColorButton");
+const customColorInput = document.querySelector("#customColorInput");
+const rainbowColorButton = document.querySelector("#rainbowColorButton");
+const gradientColorButton = document.querySelector("#gradientColorButton");
+const recentColors = document.querySelector("#recentColors");
 
 let hands = null;
 let stream = null;
@@ -48,6 +53,15 @@ let animationId = 0;
 let processing = false;
 let tool = "brush";
 let color = "#ffffff";
+let colorMode = "solid";
+let gradientPreset = "sunset";
+const GRADIENTS = {
+  sunset: ["#ff3b81", "#ff8a3d", "#ffd43b"],
+  ocean: ["#22d3ee", "#43b5ff", "#5865f2"],
+  candy: ["#ff4fd8", "#a978ff", "#43b5ff"],
+  forest: ["#9be15d", "#42e8a0", "#22d3ee"]
+};
+const RECENT_COLORS_KEY = "airdraw-recent-colors";
 let brushSize = 7;
 let brushEffect = "neon";
 let opacity = 1;
@@ -83,6 +97,96 @@ const BACKGROUNDS = ["camera", "black", "white", "custom", "transparent"];
 function setStatus(text, live = false) {
   statusText.textContent = text;
   statusPill.classList.toggle("live", live);
+}
+
+function recentColorItems() {
+  try {
+    const items = JSON.parse(localStorage.getItem(RECENT_COLORS_KEY) || "[]");
+    return Array.isArray(items) ? items.filter(value => /^#[0-9a-f]{6}$/i.test(value)) : [];
+  } catch {
+    return [];
+  }
+}
+
+function rememberColor(value) {
+  if (!/^#[0-9a-f]{6}$/i.test(value)) return;
+  const items = [value.toLowerCase(), ...recentColorItems().filter(item => item.toLowerCase() !== value.toLowerCase())].slice(0, 8);
+  try { localStorage.setItem(RECENT_COLORS_KEY, JSON.stringify(items)); } catch {}
+  renderRecentColors();
+}
+
+function syncColorModeButtons() {
+  rainbowColorButton?.classList.toggle("active", colorMode === "rainbow");
+  gradientColorButton?.classList.toggle("active", colorMode === "gradient");
+  customColorButton?.classList.toggle("active", colorMode === "solid");
+}
+
+function setSolidColor(value, announce = true) {
+  color = value;
+  colorMode = "solid";
+  if (customColorInput) customColorInput.value = value;
+  rememberColor(value);
+  syncColorModeButtons();
+  if (announce) showGesture("🎨 Custom color selected");
+}
+
+function setRainbowMode() {
+  stopDrawingForUI();
+  colorMode = colorMode === "rainbow" ? "solid" : "rainbow";
+  syncColorModeButtons();
+  showGesture(colorMode === "rainbow" ? "🌈 Rainbow mode" : "🎨 Solid color mode");
+}
+
+function cycleGradient() {
+  stopDrawingForUI();
+  const names = Object.keys(GRADIENTS);
+  const index = names.indexOf(gradientPreset);
+  gradientPreset = names[(index + 1) % names.length];
+  colorMode = "gradient";
+  syncColorModeButtons();
+  showGesture("🌈 " + gradientPreset.charAt(0).toUpperCase() + gradientPreset.slice(1) + " gradient");
+}
+
+function renderRecentColors() {
+  if (!recentColors) return;
+  recentColors.innerHTML = "";
+  const items = recentColorItems();
+  items.forEach(value => {
+    const button = document.createElement("button");
+    button.className = "recent-color";
+    button.type = "button";
+    button.style.setProperty("--c", value);
+    button.title = "Recent color " + value;
+    button.setAttribute("aria-label", "Recent color " + value);
+    button.addEventListener("click", () => {
+      stopDrawingForUI();
+      setSolidColor(value);
+    });
+    recentColors.appendChild(button);
+  });
+}
+
+function getGradientPaint(ctx, stroke) {
+  const points = stroke.points || [];
+  let minX = 0, maxX = Math.max(stage.clientWidth, 1);
+  if (points.length) {
+    minX = Math.min(...points.map(point => point.x));
+    maxX = Math.max(...points.map(point => point.x));
+    if (maxX - minX < 2) maxX = minX + Math.max(stage.clientWidth * 0.25, 80);
+  }
+  const gradient = ctx.createLinearGradient(minX, 0, maxX, 0);
+  const stops = stroke.colorMode === "rainbow"
+    ? ["#ff3b81","#ff8a3d","#ffd43b","#42e8a0","#43b5ff","#5865f2","#a978ff","#ff4fd8"]
+    : (GRADIENTS[stroke.gradient] || GRADIENTS.sunset);
+  stops.forEach((stop, index) => gradient.addColorStop(index / (stops.length - 1), stop));
+  return gradient;
+}
+
+function setStrokePaint(ctx, stroke) {
+  const paint = stroke.colorMode === "solid" || !stroke.colorMode ? stroke.color : getGradientPaint(ctx, stroke);
+  ctx.strokeStyle = paint;
+  ctx.fillStyle = paint;
+  return paint;
 }
 
 function withTimeout(promise, milliseconds, message) {
@@ -303,6 +407,8 @@ function beginStroke(point) {
   activeStroke = {
     tool,
     color,
+    colorMode,
+    gradient: gradientPreset,
     size: tool === "eraser" ? eraserSize : brushSize,
     effect: brushEffect,
     opacity,
@@ -397,7 +503,7 @@ function redraw() {
       drawCtx.strokeStyle = "#000";
     } else {
       drawCtx.globalCompositeOperation = "source-over";
-      drawCtx.strokeStyle = stroke.color;
+      setStrokePaint(drawCtx, stroke);
       if (stroke.effect === "neon") {
         drawCtx.shadowColor = stroke.color;
         drawCtx.shadowBlur = Math.min(stroke.size * 2.6, 34);
@@ -479,7 +585,12 @@ function savePng() {
     ctx.lineWidth = stroke.size;
     ctx.globalAlpha = stroke.opacity ?? 1;
     ctx.globalCompositeOperation = stroke.tool === "eraser" ? "destination-out" : "source-over";
-    ctx.strokeStyle = stroke.tool === "eraser" ? "#000" : stroke.color;
+    if (stroke.tool === "eraser") {
+      ctx.strokeStyle = "#000";
+      ctx.fillStyle = "#000";
+    } else {
+      setStrokePaint(ctx, stroke);
+    }
     if (stroke.tool !== "eraser") {
       if (stroke.effect === "neon") {
         ctx.shadowColor = stroke.color;
@@ -745,6 +856,8 @@ async function recognizeAirText() {
     recognizeTextButton.disabled = false;
   }
 }
+
+renderRecentColors();
 
 function updateSizeDisplay() {
   sizeDisplay.textContent = brushSize;
@@ -1288,10 +1401,23 @@ document.querySelectorAll(".color").forEach(button => {
     stopDrawingForUI();
     document.querySelectorAll(".color").forEach(b => b.classList.remove("active"));
     button.classList.add("active");
-    color = button.dataset.color;
+    setSolidColor(button.dataset.color, false);
+    showGesture("🎨 " + button.title);
     if (tool === "eraser") document.querySelector('[data-tool="brush"]').click();
   });
 });
+
+customColorButton?.addEventListener("click", () => {
+  stopDrawingForUI();
+  customColorInput?.click();
+});
+customColorInput?.addEventListener("input", event => {
+  setSolidColor(event.target.value);
+  if (tool === "eraser") document.querySelector('[data-tool="brush"]').click();
+});
+rainbowColorButton?.addEventListener("click", setRainbowMode);
+gradientColorButton?.addEventListener("click", cycleGradient);
+syncColorModeButtons();
 
 snapshotButton.addEventListener("click", takeSnapshot);
 recordButton.addEventListener("click", () => recording ? stopRecording() : startRecording());

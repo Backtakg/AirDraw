@@ -674,3 +674,74 @@ footer {
 .stage.background-white #cursorCanvas,
 .stage.background-transparent #drawCanvas,
 .stage.background-transparent #cursorCanvas { position: absolute; z-index: 2; }
+
+
+/* Expanded color palette */
+.palette-tool {
+  width: 27px;
+  height: 27px;
+  flex: 0 0 27px;
+  border: 2px solid rgba(255,255,255,.16);
+  border-radius: 9px;
+  background: rgba(8,11,20,.72);
+  cursor: pointer;
+  pointer-events: auto;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font-size: .78rem;
+  box-shadow: 0 0 0 2px rgba(5,7,13,.72);
+}
+.palette-tool:hover, .palette-tool.active {
+  border-color: rgba(255,255,255,.92);
+  box-shadow: 0 0 0 2px rgba(124,92,255,.55), 0 0 14px rgba(124,92,255,.3);
+}
+#customColorInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.recent-colors {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  pointer-events: none;
+}
+.recent-color {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  padding: 0;
+  border: 2px solid rgba(255,255,255,.42);
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: 0 0 0 2px rgba(5,7,13,.72);
+  cursor: pointer;
+  pointer-events: auto;
+}
+.recent-color:hover {
+  transform: scale(1.14);
+  border-color: #fff;
+}
+@media(max-width:900px),(orientation:portrait) {
+  .palette-tool {
+    width: 19px;
+    height: 19px;
+    flex-basis: 19px;
+    border-radius: 6px;
+    font-size: .55rem;
+  }
+  .recent-colors { gap: 2px; }
+  .recent-color {
+    width: 15px;
+    height: 15px;
+    flex-basis: 15px;
+    border-width: 1px;
+  }
+  .colors {
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+}
