@@ -1341,9 +1341,9 @@ function processResults(results){
   if(gesture==="fist"||gesture==="thumb"){endStroke();drawPaused=true;return;}
   drawPaused=false;
   if(selecting||selected){endStroke();return;}
-  // A visible hand is enough to keep fingertip tracking active. This avoids
-  // losing the index point because of small finger-angle variations.
-  if(!fingerExtended(drawHand, 8, 6) && gesture!=="index"){endStroke();return;}
+  // The fingertip cursor is already produced by the landmark model. Do not
+  // require a second, fragile gesture classifier before drawing; that was
+  // causing the cursor to move while strokes never started.
   if(uiInteractionLock){endStroke();smoothedPoint=null;uiInteractionLock=false;return;}
   if(!activeStroke)beginStroke(smoothedPoint);else addPoint(smoothedPoint);
 }
