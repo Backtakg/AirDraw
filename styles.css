@@ -757,3 +757,57 @@ footer {
 @media(max-width:900px),(orientation:portrait) {
   .particle-button { min-width: 20px; font-size: .6rem; }
 }
+
+
+/* Layer panel */
+.layers-panel {
+  position: fixed;
+  top: 78px;
+  right: 18px;
+  z-index: 60;
+  width: 230px;
+  max-height: min(430px, calc(100vh - 120px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 16px;
+  background: rgba(8,11,20,.82);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 18px 45px rgba(0,0,0,.35);
+}
+.layers-header { display:flex; align-items:center; justify-content:space-between; }
+.layers-header strong { display:block; font-size:.9rem; }
+.layers-header span { display:block; margin-top:2px; color:rgba(255,255,255,.52); font-size:.68rem; }
+.layers-add {
+  width:30px;height:30px;border-radius:9px;border:1px solid rgba(255,255,255,.16);
+  background:rgba(255,255,255,.07);color:#fff;font-size:1.15rem;cursor:pointer;
+}
+.layers-list { overflow:auto; display:flex; flex-direction:column; gap:5px; }
+.layer-row {
+  display:grid; grid-template-columns:minmax(0,1fr) 26px 24px 24px 24px; gap:3px;
+  align-items:center; padding:4px; border-radius:10px;
+  background:rgba(255,255,255,.035); border:1px solid transparent;
+}
+.layer-row.active { border-color:rgba(124,92,255,.55); background:rgba(124,92,255,.12); }
+.layer-select {
+  min-width:0; display:flex; align-items:center; gap:7px; border:0; background:none;
+  color:#fff; text-align:left; cursor:pointer; padding:4px;
+}
+.layer-name { overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.72rem; }
+.layer-thumb { width:20px;height:20px;border-radius:6px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15);flex:0 0 20px; }
+.layer-visibility,.layer-up,.layer-down,.layer-delete {
+  width:24px;height:24px;border:0;border-radius:7px;background:rgba(255,255,255,.05);color:rgba(255,255,255,.72);cursor:pointer;
+}
+.layer-visibility:hover,.layer-up:hover,.layer-down:hover,.layer-delete:hover { background:rgba(255,255,255,.13);color:#fff; }
+.layer-delete:hover { color:#ff6b7d; }
+.layers-help { color:rgba(255,255,255,.38);font-size:.62rem;text-align:center;padding-top:2px; }
+@media(max-width:900px),(orientation:portrait) {
+  .layers-panel { top:auto; bottom:62px; right:8px; width:190px; max-height:280px; padding:9px; }
+}
+@media(max-width:520px) {
+  .layers-panel { width:170px; }
+  .layer-row { grid-template-columns:minmax(0,1fr) 22px 21px 21px 21px; }
+  .layer-visibility,.layer-up,.layer-down,.layer-delete { width:21px;height:21px;font-size:.7rem; }
+}

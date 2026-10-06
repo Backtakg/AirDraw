@@ -45,6 +45,10 @@ const rainbowColorButton = document.querySelector("#rainbowColorButton");
 const gradientColorButton = document.querySelector("#gradientColorButton");
 const particleButton = document.querySelector("#particleButton");
 const recentColors = document.querySelector("#recentColors");
+const layersPanel = document.querySelector("#layersPanel");
+const layersList = document.querySelector("#layersList");
+const addLayerButton = document.querySelector("#addLayerButton");
+const layerCount = document.querySelector("#layerCount");
 
 let hands = null;
 let stream = null;
@@ -75,6 +79,10 @@ let lastGestureName = "";
 const EFFECTS = ["normal", "glow", "neon", "marker", "pencil"];
 const SHAPES = ["freehand", "line", "rectangle", "circle"];
 let eraserSize = 38;
+const LAYERS_KEY = "airdraw-layers";
+let layers = [];
+let activeLayerId = null;
+let layerCounter = 0;
 let strokes = [];
 let redoStack = [];
 let activeStroke = null;
@@ -386,6 +394,185 @@ function updateAirControlDwell(control) {
   return false;
 }
 
+function createLayer(name) {
+  layerCounter += 1;
+  return { id: "layer-" + Date.now() + "-" + layerCounter, name: name || `Layer ${layerCounter}`, visible: true, strokes: [] };
+}
+
+function ensureLayers() {
+  if (!layers.length) {
+    const layer = createLayer("Layer 1");
+    layers = [layer];
+    activeLayerId = layer.id;
+  }
+  if (!layers.some(layer => layer.id === activeLayerId)) activeLayerId = layers[layers.length - 1].id;
+  syncLayerState();
+}
+
+function syncLayerState() {
+  const active = layers.find(layer => layer.id === activeLayerId) || layers[layers.length - 1];
+  strokes = active ? active.strokes : [];
+  renderLayers();
+}
+
+function persistLayers() {
+  try {
+    localStorage.setItem(LAYERS_KEY, JSON.stringify(layers));
+  } catch {}
+}
+
+function loadLayers() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LAYERS_KEY) || "null");
+    if (Array.isArray(saved) && saved.length) {
+      layers = saved.filter(layer => layer && layer.id && Array.isArray(layer.strokes));
+      if (layers.length) activeLayerId = layers[layers.length - 1].id;
+    }
+  } catch {}
+  ensureLayers();
+}
+
+function renderLayers() {
+  if (!layersList) return;
+  layersList.innerHTML = "";
+  [...layers].reverse().forEach(layer => {
+    const row = document.createElement("div");
+    row.className = "layer-row" + (layer.id === activeLayerId ? " active" : "");
+    row.dataset.layerId = layer.id;
+    row.innerHTML = `
+      <button class="layer-select" type="button" title="Select ${layer.name}">
+        <span class="layer-thumb"></span><span class="layer-name">${layer.name}</span>
+      </button>
+      <button class="layer-visibility" type="button" title="${layer.visible ? "Hide layer" : "Show layer"}" aria-label="${layer.visible ? "Hide layer" : "Show layer"}">${layer.visible ? "◉" : "○"}</button>
+      <button class="layer-up" type="button" title="Move layer up" aria-label="Move layer up">↑</button>
+      <button class="layer-down" type="button" title="Move layer down" aria-label="Move layer down">↓</button>
+      <button class="layer-delete" type="button" title="Delete layer" aria-label="Delete layer">×</button>`;
+    const thumb = row.querySelector(".layer-thumb");
+    const last = layer.strokes[layer.strokes.length - 1];
+    if (last?.color) thumb.style.background = last.color;
+    row.querySelector(".layer-select").addEventListener("click", () => selectLayer(layer.id));
+    row.querySelector(".layer-visibility").addEventListener("click", () => toggleLayer(layer.id));
+    row.querySelector(".layer-up").addEventListener("click", () => moveLayer(layer.id, 1));
+    row.querySelector(".layer-down").addEventListener("click", () => moveLayer(layer.id, -1));
+    row.querySelector(".layer-delete").addEventListener("click", () => deleteLayer(layer.id));
+    layersList.appendChild(row);
+  });
+  if (layerCount) layerCount.textContent = layers.length + (layers.length === 1 ? " layer" : " layers");
+}
+
+function selectLayer(id) {
+  stopDrawingForUI();
+  if (!layers.some(layer => layer.id === id)) return;
+  activeLayerId = id;
+  syncLayerState();
+  redrawAllLayers();
+  showGesture("Layer selected");
+}
+
+function addLayer() {
+  stopDrawingForUI();
+  const layer = createLayer(`Layer ${layers.length + 1}`);
+  layers.push(layer);
+  activeLayerId = layer.id;
+  redoStack = [];
+  syncLayerState();
+  redrawAllLayers();
+  persistLayers();
+  showGesture("➕ " + layer.name);
+}
+
+function toggleLayer(id) {
+  stopDrawingForUI();
+  const layer = layers.find(item => item.id === id);
+  if (!layer) return;
+  layer.visible = !layer.visible;
+  persistLayers();
+  renderLayers();
+  redrawAllLayers();
+  showGesture(layer.visible ? "Layer shown" : "Layer hidden");
+}
+
+function moveLayer(id, direction) {
+  stopDrawingForUI();
+  const index = layers.findIndex(item => item.id === id);
+  const target = index + direction;
+  if (index < 0 || target < 0 || target >= layers.length) return;
+  [layers[index], layers[target]] = [layers[target], layers[index]];
+  persistLayers();
+  renderLayers();
+  redrawAllLayers();
+}
+
+function deleteLayer(id) {
+  stopDrawingForUI();
+  if (layers.length <= 1) {
+    clearDrawing();
+    showGesture("Keep at least one layer");
+    return;
+  }
+  const index = layers.findIndex(item => item.id === id);
+  if (index < 0) return;
+  layers.splice(index, 1);
+  if (activeLayerId === id) activeLayerId = layers[Math.max(0, index - 1)].id;
+  syncLayerState();
+  redrawAllLayers();
+  persistLayers();
+  showGesture("Layer deleted");
+}
+
+function redrawAllLayers() {
+  const rect = stage.getBoundingClientRect();
+  drawCtx.clearRect(0, 0, rect.width, rect.height);
+  for (const layer of layers) {
+    if (!layer.visible) continue;
+    if (layer.snapshot) {
+      const image = new Image();
+      image.onload = () => {
+        const r = stage.getBoundingClientRect();
+        drawCtx.drawImage(image, 0, 0, r.width, r.height);
+      };
+      image.src = layer.snapshot;
+    } else {
+      drawStrokes(drawCtx, layer.strokes);
+    }
+  }
+}
+
+function drawStrokes(ctx, strokeList) {
+  for (const stroke of strokeList) {
+    if (!stroke.points?.length) continue;
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = stroke.size;
+    ctx.globalAlpha = stroke.opacity ?? 1;
+    if (stroke.tool === "eraser") {
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.strokeStyle = "#000";
+    } else {
+      ctx.globalCompositeOperation = "source-over";
+      setStrokePaint(ctx, stroke);
+      if (stroke.effect === "neon") {
+        ctx.shadowColor = stroke.color; ctx.shadowBlur = Math.min(stroke.size * 2.6, 34);
+      } else if (stroke.effect === "glow") {
+        ctx.shadowColor = stroke.color; ctx.shadowBlur = Math.min(stroke.size * 1.35, 20);
+      } else if (stroke.effect === "marker") {
+        ctx.lineWidth = stroke.size * 1.35; ctx.globalAlpha *= 0.82;
+      } else if (stroke.effect === "pencil") {
+        ctx.lineWidth = Math.max(1.2, stroke.size * 0.55); ctx.globalAlpha *= 0.78;
+      } else ctx.shadowBlur = 0;
+      if (stroke.particle && stroke.particle !== "none") drawParticleEffect(ctx, stroke);
+    }
+    if (stroke.shape && stroke.shape !== "freehand" && stroke.points.length >= 2) drawShape(ctx, stroke);
+    else if (stroke.points.length === 1) {
+      const p = stroke.points[0];
+      ctx.beginPath(); ctx.arc(p.x, p.y, stroke.size / 2, 0, Math.PI * 2);
+      ctx.fillStyle = stroke.tool === "eraser" ? "#000" : (stroke.color || "#fff"); ctx.fill();
+    } else drawSmoothStroke(ctx, stroke.points);
+    ctx.restore();
+  }
+}
+
 function drawCursor(point, active) {
   const rect = stage.getBoundingClientRect();
   cursorCtx.clearRect(0, 0, rect.width, rect.height);
@@ -507,8 +694,14 @@ function beginStroke(point) {
     shape: shapeMode,
     points: [point]
   };
+  const activeLayer = layers.find(layer => layer.id === activeLayerId);
+  if (!activeLayer) ensureLayers();
   strokes.push(activeStroke);
+  const currentLayer = layers.find(layer => layer.id === activeLayerId);
+  if (currentLayer && currentLayer.strokes !== strokes) currentLayer.strokes = strokes;
   redoStack = [];
+  persistLayers();
+  renderLayers();
   updateHistoryButtons();
 }
 
@@ -581,55 +774,7 @@ function drawShape(ctx, stroke) {
 }
 
 function redraw() {
-  const rect = stage.getBoundingClientRect();
-  drawCtx.clearRect(0, 0, rect.width, rect.height);
-  for (const stroke of strokes) {
-    if (!stroke.points.length) continue;
-    drawCtx.save();
-    drawCtx.lineCap = "round";
-    drawCtx.lineJoin = "round";
-    drawCtx.lineWidth = stroke.size;
-    drawCtx.globalAlpha = stroke.opacity ?? 1;
-    if (stroke.tool === "eraser") {
-      drawCtx.globalCompositeOperation = "destination-out";
-      drawCtx.strokeStyle = "#000";
-    } else {
-      drawCtx.globalCompositeOperation = "source-over";
-      setStrokePaint(drawCtx, stroke);
-      if (stroke.effect === "neon") {
-        drawCtx.shadowColor = stroke.color;
-        drawCtx.shadowBlur = Math.min(stroke.size * 2.6, 34);
-      } else if (stroke.effect === "glow") {
-        drawCtx.shadowColor = stroke.color;
-        drawCtx.shadowBlur = Math.min(stroke.size * 1.35, 20);
-      } else if (stroke.effect === "marker") {
-        drawCtx.lineWidth = stroke.size * 1.35;
-        drawCtx.globalAlpha *= 0.82;
-        drawCtx.shadowBlur = 0;
-      } else if (stroke.effect === "pencil") {
-        drawCtx.lineWidth = Math.max(1.2, stroke.size * 0.55);
-        drawCtx.globalAlpha *= 0.78;
-        drawCtx.shadowBlur = 0;
-      } else {
-        drawCtx.shadowBlur = 0;
-      }
-    }
-    if (stroke.particle && stroke.particle !== "none") {
-      drawParticleEffect(drawCtx, stroke);
-    }
-    if (stroke.shape && stroke.shape !== "freehand" && stroke.points.length >= 2) {
-      drawShape(drawCtx, stroke);
-    } else if (stroke.points.length === 1) {
-      const p = stroke.points[0];
-      drawCtx.beginPath();
-      drawCtx.arc(p.x, p.y, stroke.size / 2, 0, Math.PI * 2);
-      drawCtx.fillStyle = stroke.tool === "eraser" ? "#000" : stroke.color;
-      drawCtx.fill();
-    } else {
-      drawSmoothStroke(drawCtx, stroke.points);
-    }
-    drawCtx.restore();
-  }
+  redrawAllLayers();
 }
 
 function updateHistoryButtons() {
@@ -641,7 +786,10 @@ function undo() {
   endStroke();
   if (!strokes.length) return;
   redoStack.push(strokes.pop());
-  redraw();
+  const activeLayer = layers.find(layer => layer.id === activeLayerId);
+  if (activeLayer) activeLayer.strokes = strokes;
+  persistLayers();
+  redrawAllLayers();
   updateHistoryButtons();
 }
 
@@ -649,7 +797,10 @@ function redo() {
   endStroke();
   if (!redoStack.length) return;
   strokes.push(redoStack.pop());
-  redraw();
+  const activeLayer = layers.find(layer => layer.id === activeLayerId);
+  if (activeLayer) activeLayer.strokes = strokes;
+  persistLayers();
+  redrawAllLayers();
   updateHistoryButtons();
 }
 
@@ -658,7 +809,11 @@ function clearDrawing() {
   if (!strokes.length) return;
   redoStack = strokes.slice();
   strokes = [];
-  redraw();
+  const activeLayer = layers.find(layer => layer.id === activeLayerId);
+  if (activeLayer) activeLayer.strokes = strokes;
+  persistLayers();
+  redrawAllLayers();
+  renderLayers();
   updateHistoryButtons();
 }
 
@@ -672,7 +827,9 @@ function savePng() {
   drawExportBackground(ctx, out.width, out.height);
   ctx.save();
   ctx.scale(2, 2);
-  for (const stroke of strokes) {
+  for (const layer of layers) {
+    if (!layer.visible) continue;
+    for (const stroke of layer.strokes) {
     if (!stroke.points.length) continue;
     ctx.save();
     ctx.lineCap = "round";
@@ -716,6 +873,7 @@ function savePng() {
       drawSmoothStroke(ctx, stroke.points);
     }
     ctx.restore();
+    }
   }
   ctx.restore();
   const dataUrl = out.toDataURL("image/png");
@@ -1029,7 +1187,7 @@ function galleryItems() {
 
 function saveToGallery(dataUrl) {
   const items = galleryItems();
-  items.unshift({ id: Date.now(), dataUrl });
+  items.unshift({ id: Date.now(), name: "Drawing " + new Date().toLocaleString(), dataUrl });
   try {
     localStorage.setItem("airdraw-gallery", JSON.stringify(items.slice(0, 12)));
   } catch {
@@ -1047,7 +1205,7 @@ function renderGallery() {
   items.forEach((item, index) => {
     const card = document.createElement("div");
     card.className = "gallery-card";
-    card.innerHTML = `<img src="${item.dataUrl}" alt="Saved AirDraw drawing"><div class="gallery-card-actions"><button data-index="${index}" class="gallery-download">Download</button><button data-remove="${index}" class="gallery-delete">Delete</button></div>`;
+    card.innerHTML = `<img src="${item.dataUrl}" alt="Saved AirDraw drawing"><div class="gallery-card-title">${item.name || "Saved drawing"}</div><div class="gallery-card-actions"><button data-index="${index}" class="gallery-download">Download</button><button data-load="${index}" class="gallery-load">Load</button><button data-remove="${index}" class="gallery-delete">Delete</button></div>`;
     galleryGrid.appendChild(card);
   });
 }
@@ -1065,6 +1223,7 @@ function closeGallery() {
 galleryGrid.addEventListener("click", event => {
   const download = event.target.closest("[data-index]");
   const remove = event.target.closest("[data-remove]");
+  const load = event.target.closest("[data-load]");
   const items = galleryItems();
   if (download) {
     const item = items[Number(download.dataset.index)];
@@ -1073,6 +1232,32 @@ galleryGrid.addEventListener("click", event => {
     link.download = "airdraw-gallery.png";
     link.href = item.dataUrl;
     link.click();
+  }
+  if (load) {
+    const item = items[Number(load.dataset.load)];
+    if (item?.dataUrl) {
+      const image = new Image();
+      image.onload = () => {
+        const activeLayer = layers.find(layer => layer.id === activeLayerId);
+        if (!activeLayer) return;
+        activeLayer.strokes = [];
+        const scaleX = stage.clientWidth / image.naturalWidth;
+        const scaleY = stage.clientHeight / image.naturalHeight;
+        activeLayer.strokes.push({
+          tool:"brush", color:"#ffffff", colorMode:"solid", gradient:"sunset",
+          size:1, effect:"normal", particle:"none", opacity:1, shape:"freehand",
+          points:[{x:stage.clientWidth/2,y:stage.clientHeight/2}]
+        });
+        // Gallery images are raster snapshots; preserve them as a background layer.
+        activeLayer.snapshot = item.dataUrl;
+        activeLayer.snapshotScale = {x:scaleX,y:scaleY};
+        persistLayers();
+        redrawAllLayers();
+        closeGallery();
+        showGesture("🖼️ Drawing loaded");
+      };
+      image.src = item.dataUrl;
+    }
   }
   if (remove) {
     items.splice(Number(remove.dataset.remove), 1);
@@ -1569,6 +1754,7 @@ sizeUpButton.addEventListener("click", () => changeBrushSize(2));
 effectButton.addEventListener("click", cycleEffect);
 particleButton.addEventListener("click", cycleParticleEffect);
 galleryButton.addEventListener("click", openGallery);
+addLayerButton?.addEventListener("click", addLayer);
 galleryClose.addEventListener("click", closeGallery);
 galleryModal.addEventListener("click", event => {
   if (event.target === galleryModal) closeGallery();
@@ -1579,5 +1765,6 @@ window.addEventListener("resize", resizeCanvases);
 window.addEventListener("beforeunload", () => { try { if (recording) mediaRecorder?.stop(); } catch {} stop(); });
 
 window.addEventListener("DOMContentLoaded", () => {
+  loadLayers();
   setTimeout(() => start(), 250);
 });
