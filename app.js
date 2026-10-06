@@ -1553,24 +1553,22 @@ function processLandmarkerResults(result) {
 async function processFrame(force = false) {
   if (!handLandmarker || !stream || video.readyState < 2) return false;
 
-  const currentVideoTime = Number.isFinite(video.currentTime) ? video.currentTime : -1;
-  if (!force && currentVideoTime >= 0 && currentVideoTime === lastVideoTime) return false;
-
   try {
-    const timestamp = Math.max(
-      performance.now(),
-      (lastVideoTime < 0 ? 0 : lastVideoTime + 0.001)
-    );
+    // Hand Landmarker VIDEO mode requires a strictly increasing timestamp.
+    // Process every animation frame instead of relying on video.currentTime;
+    // mobile browsers can quantize currentTime and otherwise make tracking stall.
+    const timestamp = Math.max(Math.round(performance.now()), lastVideoTime + 1);
     const result = handLandmarker.detectForVideo(video, timestamp);
-    lastVideoTime = currentVideoTime;
+    lastVideoTime = timestamp;
     trackingFrameCount += 1;
     processLandmarkerResults(result);
     return true;
   } catch (error) {
     trackingErrorCount += 1;
     console.error("Hand tracking frame error:", error);
-    if (trackingErrorCount >= 8) {
-      setStatus("Tracking error — retrying…", true);
+    if (trackingErrorCount >= 3) {
+      const message = error?.message ? String(error.message).slice(0, 90) : "MediaPipe inference failed";
+      setStatus(`Tracking failed — ${message}`, true);
     }
     return false;
   }
@@ -1604,7 +1602,7 @@ async function start() {
     if (!stream) {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "user" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          video: { facingMode: { ideal: "user" }, width: { ideal: 640, max: 1280 }, height: { ideal: 480, max: 720 }, frameRate: { ideal: 30, max: 30 } },
           audio: false
         });
       } catch (cameraError) {
@@ -1630,6 +1628,8 @@ async function start() {
         video.addEventListener("error", () => { clearTimeout(timer); reject(new Error("Camera video failed to load.")); }, { once: true });
       });
       await video.play();
+      // Give the browser one rendered camera frame before initializing inference.
+      await new Promise(resolve => requestAnimationFrame(() => resolve()));
       resizeCanvases();
 
       hideLoading();
@@ -1653,7 +1653,8 @@ async function start() {
         closeHands();
         hideLoading();
         hint.hidden = false;
-        setStatus("Camera live — tracking unavailable", true);
+        const reason = trackingError?.message ? String(trackingError.message).slice(0, 110) : "initialization failed";
+        setStatus(`Tracking failed — ${reason}`, true);
         startButton.textContent = "Retry tracking";
         startButton.disabled = false;
         started = true;
