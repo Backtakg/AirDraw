@@ -43,6 +43,7 @@ const customColorButton = document.querySelector("#customColorButton");
 const customColorInput = document.querySelector("#customColorInput");
 const rainbowColorButton = document.querySelector("#rainbowColorButton");
 const gradientColorButton = document.querySelector("#gradientColorButton");
+const particleButton = document.querySelector("#particleButton");
 const recentColors = document.querySelector("#recentColors");
 
 let hands = null;
@@ -403,6 +404,96 @@ function drawCursor(point, active) {
   cursorCtx.stroke();
 }
 
+function seededRandom(seed) {
+  const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+  return value - Math.floor(value);
+}
+
+function particleColor(stroke, index, alpha = 1) {
+  if (stroke.colorMode === "rainbow") {
+    const hue = (index * 47 + particleSeed * 13) % 360;
+    return `hsla(${hue}, 100%, 65%, ${alpha})`;
+  }
+  if (stroke.colorMode === "gradient") {
+    const stops = GRADIENTS[stroke.gradient] || GRADIENTS.sunset;
+    return stops[index % stops.length];
+  }
+  return stroke.color;
+}
+
+function drawParticleEffect(ctx, stroke) {
+  if (!stroke.particle || !stroke.points?.length) return;
+  const points = stroke.points;
+  const step = stroke.particle === "stars" ? 2 : 3;
+  const maxParticles = stroke.particle === "confetti" ? 260 : 220;
+  let index = 0;
+  for (let i = 0; i < points.length; i += step) {
+    const p = points[i];
+    const next = points[Math.min(points.length - 1, i + 1)] || p;
+    const dx = next.x - p.x, dy = next.y - p.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len, ny = dx / len;
+    const count = stroke.particle === "smoke" ? 2 : 3;
+    for (let j = 0; j < count && index < maxParticles; j++, index++) {
+      const r1 = seededRandom(index + 1 + i * 17);
+      const r2 = seededRandom(index + 91 + i * 23);
+      const side = (r1 - .5) * stroke.size * (stroke.particle === "confetti" ? 2.8 : 2.2);
+      const along = (r2 - .5) * stroke.size * 1.8;
+      const x = p.x + nx * side + (dx / len) * along;
+      const y = p.y + ny * side + (dy / len) * along;
+      const size = Math.max(2, stroke.size * (.25 + r1 * .55));
+      const alpha = stroke.opacity * (.35 + r2 * .65);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      if (stroke.particle === "sparks") {
+        ctx.strokeStyle = particleColor(stroke, index, alpha);
+        ctx.lineWidth = Math.max(1, size * .28);
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + nx * size * 2 + dx / len * size * 1.4, y + ny * size * 2 + dy / len * size * 1.4);
+        ctx.stroke();
+      } else if (stroke.particle === "stars") {
+        ctx.fillStyle = particleColor(stroke, index, alpha);
+        ctx.shadowColor = ctx.fillStyle;
+        ctx.shadowBlur = size * 2;
+        ctx.beginPath();
+        for (let k = 0; k < 10; k++) {
+          const angle = -Math.PI / 2 + k * Math.PI / 5;
+          const radius = k % 2 ? size * .42 : size;
+          const px = x + Math.cos(angle) * radius;
+          const py = y + Math.sin(angle) * radius;
+          k ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+      } else if (stroke.particle === "smoke") {
+        ctx.fillStyle = `rgba(190, 198, 215, ${alpha * .42})`;
+        ctx.shadowColor = "rgba(160,170,190,.25)";
+        ctx.shadowBlur = size * 2.5;
+        ctx.beginPath();
+        ctx.arc(x, y - size * 1.3, size * (1 + r1), 0, Math.PI * 2);
+        ctx.fill();
+      } else if (stroke.particle === "fire") {
+        const warm = index % 3 === 0 ? "#fff2a8" : index % 2 ? "#ff8a24" : "#ff3b1f";
+        ctx.fillStyle = warm;
+        ctx.shadowColor = "#ff5a1f";
+        ctx.shadowBlur = size * 2.8;
+        ctx.beginPath();
+        ctx.moveTo(x, y + size);
+        ctx.quadraticCurveTo(x - size * .9, y, x, y - size * (1.3 + r1));
+        ctx.quadraticCurveTo(x + size * .9, y, x, y + size);
+        ctx.fill();
+      } else if (stroke.particle === "confetti") {
+        ctx.fillStyle = particleColor(stroke, index, alpha);
+        ctx.translate(x, y);
+        ctx.rotate((r1 * Math.PI * 2));
+        ctx.fillRect(-size * .7, -size * .25, size * 1.4, size * .5);
+      }
+      ctx.restore();
+    }
+  }
+}
+
 function beginStroke(point) {
   activeStroke = {
     tool,
@@ -411,6 +502,7 @@ function beginStroke(point) {
     gradient: gradientPreset,
     size: tool === "eraser" ? eraserSize : brushSize,
     effect: brushEffect,
+    particle: particleEffect,
     opacity,
     shape: shapeMode,
     points: [point]
@@ -522,6 +614,9 @@ function redraw() {
         drawCtx.shadowBlur = 0;
       }
     }
+    if (stroke.particle && stroke.particle !== "none") {
+      drawParticleEffect(drawCtx, stroke);
+    }
     if (stroke.shape && stroke.shape !== "freehand" && stroke.points.length >= 2) {
       drawShape(drawCtx, stroke);
     } else if (stroke.points.length === 1) {
@@ -592,6 +687,9 @@ function savePng() {
       setStrokePaint(ctx, stroke);
     }
     if (stroke.tool !== "eraser") {
+      if (stroke.particle && stroke.particle !== "none") {
+        drawParticleEffect(ctx, stroke);
+      }
       if (stroke.effect === "neon") {
         ctx.shadowColor = stroke.color;
         ctx.shadowBlur = Math.min(stroke.size * 2.6, 34);
@@ -907,6 +1005,18 @@ function cycleEffect() {
   effectButton.textContent = labels[brushEffect];
   effectButton.title = `Brush style: ${brushEffect}`;
   effectButton.setAttribute("aria-label", `Brush style: ${brushEffect}`);
+}
+
+function cycleParticleEffect() {
+  stopDrawingForUI();
+  const index = PARTICLE_EFFECTS.indexOf(particleEffect);
+  particleEffect = PARTICLE_EFFECTS[(index + 1) % PARTICLE_EFFECTS.length];
+  const labels = {none:"•", sparks:"✧", stars:"★", smoke:"☁", fire:"🔥", confetti:"🎉"};
+  particleButton.textContent = labels[particleEffect];
+  particleButton.title = particleEffect === "none" ? "Particle effects: Off" : "Particle effect: " + particleEffect;
+  particleButton.setAttribute("aria-label", particleButton.title);
+  showGesture(particleEffect === "none" ? "Particles off" : "✨ " + particleEffect + " particles");
+  redraw();
 }
 
 function galleryItems() {
@@ -1457,6 +1567,7 @@ sizeSlider?.addEventListener("input", event => {
 });
 sizeUpButton.addEventListener("click", () => changeBrushSize(2));
 effectButton.addEventListener("click", cycleEffect);
+particleButton.addEventListener("click", cycleParticleEffect);
 galleryButton.addEventListener("click", openGallery);
 galleryClose.addEventListener("click", closeGallery);
 galleryModal.addEventListener("click", event => {

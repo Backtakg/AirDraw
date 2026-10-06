@@ -745,3 +745,15 @@ footer {
     flex-wrap: wrap;
   }
 }
+
+
+.particle-button {
+  min-width: 30px;
+  font-size: .9rem;
+}
+.particle-button.active {
+  border-color: rgba(255,255,255,.95);
+}
+@media(max-width:900px),(orientation:portrait) {
+  .particle-button { min-width: 20px; font-size: .6rem; }
+}
