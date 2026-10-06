@@ -1420,9 +1420,9 @@ function setupHands(assetBase) {
 
   hands.setOptions({
     maxNumHands: 2,
-    modelComplexity: 1,
-    minDetectionConfidence: 0.55,
-    minTrackingConfidence: 0.55
+    modelComplexity: 0,
+    minDetectionConfidence: 0.4,
+    minTrackingConfidence: 0.4
   });
 
   hands.onResults(processResults);
