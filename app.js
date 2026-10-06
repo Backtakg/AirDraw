@@ -1329,7 +1329,7 @@ function handleGesture(hand) {
 
 function processResults(results){
   cursorCtx.clearRect(0,0,stage.clientWidth,stage.clientHeight);
-  const hs=results.multiHandLandmarks||[]; if(hs.length)setStatus(hs.length>1?"Two hands detected":"Hand detected",true);else if(trackingReady)setStatus("Tracking ready — show your hand",true);
+  const hs=results?.multiHandLandmarks || results?.landmarks || []; if(hs.length)setStatus(hs.length>1?"Two hands detected":"Hand detected",true);else if(trackingReady)setStatus("Tracking ready — show your hand",true);
   if(!hs.length){smoothedPoint=null;controlHand=null;endStroke();clearAirControlHover();drawPaused=false;lastGestureName="";return;}
   let drawHand=hs[0];controlHand=null;if(twoHandMode&&hs.length>1){controlHand=hs[1];applyTwoHandControls(controlHand);}
   const raw=canvasPoint(drawHand[8]);
@@ -1347,110 +1347,118 @@ function processResults(results){
   if(uiInteractionLock){endStroke();smoothedPoint=null;uiInteractionLock=false;return;}
   if(!activeStroke)beginStroke(smoothedPoint);else addPoint(smoothedPoint);
 }
-function loadHandsLibrary() {
-  if (window.Hands) return Promise.resolve();
+let handLandmarker = null;
+let handLandmarkerModule = null;
+let lastVideoTime = -1;
+let trackingFrameCount = 0;
+let trackingErrorCount = 0;
 
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector('script[data-mediapipe-hands]');
-    if (existing) {
-      if (existing.dataset.loaded === "true" && window.Hands) {
-        resolve();
-        return;
-      }
-      existing.addEventListener("load", resolve, { once: true });
-      existing.addEventListener("error", () => reject(new Error("Hand tracking library could not be loaded.")), { once: true });
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js";
-    script.crossOrigin = "anonymous";
-    script.dataset.mediapipeHands = "true";
-    script.onload = () => {
-      script.dataset.loaded = "true";
-      resolve();
-    };
-    script.onerror = () => {
-      script.remove();
-      reject(new Error("Hand tracking library could not be loaded. Check your internet connection."));
-    };
-    document.head.appendChild(script);
-  });
+async function loadHandLandmarkerLibrary() {
+  if (handLandmarkerModule) return handLandmarkerModule;
+  const module = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/vision_bundle.mjs");
+  if (!module.FilesetResolver || !module.HandLandmarker) {
+    throw new Error("MediaPipe Hand Landmarker library loaded without the required APIs.");
+  }
+  handLandmarkerModule = module;
+  return module;
 }
 
 function closeHands() {
-  if (!hands) return;
+  if (!handLandmarker) return;
   try {
-    if (typeof hands.close === "function") hands.close();
+    if (typeof handLandmarker.close === "function") handLandmarker.close();
   } catch (error) {
-    console.warn("Could not close MediaPipe Hands cleanly:", error);
+    console.warn("Could not close Hand Landmarker cleanly:", error);
   }
+  handLandmarker = null;
   hands = null;
   trackingReady = false;
+  lastVideoTime = -1;
 }
 
-function setupHands(assetBase) {
-  if (!window.Hands) throw new Error("Hand tracking library did not load.");
+async function createHandLandmarker(delegate) {
+  const { FilesetResolver, HandLandmarker } = await loadHandLandmarkerLibrary();
+  const vision = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm"
+  );
 
-  hands = new window.Hands({
-    locateFile: file => assetBase + file
+  return HandLandmarker.createFromOptions(vision, {
+    baseOptions: {
+      modelAssetPath:
+        "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+      delegate
+    },
+    runningMode: "VIDEO",
+    numHands: 2,
+    minHandDetectionConfidence: 0.35,
+    minHandPresenceConfidence: 0.35,
+    minTrackingConfidence: 0.35
   });
-
-  hands.setOptions({
-    maxNumHands: twoHandMode ? 2 : 1,
-    modelComplexity: 0,
-    minDetectionConfidence: 0.4,
-    minTrackingConfidence: 0.4
-  });
-
-  hands.onResults(processResults);
 }
 
 async function startHandTracking() {
-  const assetBases = [
-    "https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/",
-    "https://unpkg.com/@mediapipe/hands@0.4.1675469240/"
-  ];
-
   let lastError = null;
 
-  await withTimeout(
-    loadHandsLibrary(),
-    15000,
-    "Hand tracking library timed out."
-  );
-
-  for (const assetBase of assetBases) {
+  // GPU is faster on supported phones, but CPU is the reliable fallback.
+  for (const delegate of ["GPU", "CPU"]) {
     closeHands();
     try {
-      setupHands(assetBase);
-      await withTimeout(
-        hands.send({ image: video }),
-        20000,
-        "Hand model initialization timed out."
+      showLoading(delegate === "GPU"
+        ? "Starting accelerated hand tracking…"
+        : "Starting compatible hand tracking…");
+
+      handLandmarker = await withTimeout(
+        createHandLandmarker(delegate),
+        30000,
+        "Hand tracking model timed out."
       );
 
       trackingReady = true;
+      trackingFrameCount = 0;
+      trackingErrorCount = 0;
+      lastVideoTime = -1;
+
+      // Verify the model actually produces a result before declaring it ready.
+      await processFrame(true);
       return;
     } catch (error) {
       lastError = error;
-      console.error("MediaPipe initialization failed:", assetBase, error);
+      console.error("Hand Landmarker initialization failed:", delegate, error);
       closeHands();
     }
   }
 
-  throw lastError || new Error("Hand model could not be initialized.");
+  throw lastError || new Error("Hand tracking could not be initialized.");
 }
 
-async function processFrame() {
-  if (!hands || !stream || video.readyState < 2 || processing) return;
-  processing = true;
+function processLandmarkerResults(result) {
+  const handsFound = result?.landmarks || [];
+  processResults({ multiHandLandmarks: handsFound });
+}
+
+async function processFrame(force = false) {
+  if (!handLandmarker || !stream || video.readyState < 2) return false;
+
+  const currentVideoTime = Number.isFinite(video.currentTime) ? video.currentTime : -1;
+  if (!force && currentVideoTime >= 0 && currentVideoTime === lastVideoTime) return false;
+
   try {
-    await hands.send({ image: video });
+    const timestamp = Math.max(
+      performance.now(),
+      (lastVideoTime < 0 ? 0 : lastVideoTime + 0.001)
+    );
+    const result = handLandmarker.detectForVideo(video, timestamp);
+    lastVideoTime = currentVideoTime;
+    trackingFrameCount += 1;
+    processLandmarkerResults(result);
+    return true;
   } catch (error) {
+    trackingErrorCount += 1;
     console.error("Hand tracking frame error:", error);
-  } finally {
-    processing = false;
+    if (trackingErrorCount >= 8) {
+      setStatus("Tracking error — retrying…", true);
+    }
+    return false;
   }
 }
 
