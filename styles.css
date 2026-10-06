@@ -489,3 +489,89 @@ footer {
 
 /* Small, consistent spacing between the AR colour swatches. */
 .colors .color { margin: 0; }
+
+
+/* Brush feature rail */
+.feature-tools {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  pointer-events: none;
+}
+.feature-tools .feature-btn {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  min-height: 42px;
+  border-radius: 12px;
+  pointer-events: auto;
+  font-size: 1rem;
+}
+.feature-tools .size-display {
+  cursor: default;
+  font-size: .72rem;
+  font-weight: 800;
+  color: #fff;
+  background: rgba(124,92,255,.36);
+}
+.gallery-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0,0,0,.72);
+  backdrop-filter: blur(12px);
+}
+.gallery-panel {
+  width: min(900px, 100%);
+  max-height: min(760px, 90vh);
+  overflow: auto;
+  padding: 18px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 22px;
+  background: rgba(10,13,22,.96);
+  box-shadow: 0 25px 90px rgba(0,0,0,.6);
+}
+.gallery-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.gallery-header strong { display:block; font-size: 1.1rem; }
+.gallery-header span { display:block; color: var(--muted); font-size:.72rem; margin-top:3px; }
+.gallery-close { width:42px; height:42px; min-width:42px; min-height:42px; }
+.gallery-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+  gap:12px;
+}
+.gallery-card {
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:14px;
+  background:#05070d;
+}
+.gallery-card img { display:block; width:100%; aspect-ratio:16/9; object-fit:cover; }
+.gallery-card-actions { display:flex; gap:7px; padding:8px; }
+.gallery-card-actions button {
+  flex:1; border:1px solid rgba(255,255,255,.12); border-radius:8px;
+  background:rgba(255,255,255,.07); color:#fff; padding:7px; cursor:pointer;
+}
+.gallery-delete { color:#ff8fae !important; }
+.gallery-empty { grid-column:1/-1; text-align:center; padding:60px 20px; color:var(--muted); line-height:1.7; }
+@media (max-width:900px), (orientation:portrait) {
+  .feature-tools { top:42px; left:5px; gap:3px; }
+  .feature-tools .feature-btn {
+    width:30px; height:30px; min-width:30px; min-height:30px; border-radius:8px;
+    padding:0; font-size:.75rem;
+  }
+  .feature-tools .size-display { font-size:.58rem; }
+  .gallery-panel { padding:12px; border-radius:16px; }
+  .gallery-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+}
