@@ -37,6 +37,8 @@ const textClose = document.querySelector("#textClose");
 const recognizeTextButton = document.querySelector("#recognizeTextButton");
 const recognizedText = document.querySelector("#recognizedText");
 const textStatus = document.querySelector("#textStatus");
+const backgroundButton = document.querySelector("#backgroundButton");
+const backgroundInput = document.querySelector("#backgroundInput");
 
 let hands = null;
 let stream = null;
@@ -74,6 +76,9 @@ let recordingCanvas = null;
 let recordingCtx = null;
 let recordingFrameId = 0;
 let tesseractLoading = null;
+let backgroundMode = "camera";
+let customBackgroundImage = null;
+const BACKGROUNDS = ["camera", "black", "white", "custom", "transparent"];
 
 function setStatus(text, live = false) {
   statusText.textContent = text;
@@ -97,6 +102,50 @@ function showLoading(text) {
 function hideLoading() {
   loading.hidden = true;
   loading.style.display = "none";
+}
+
+function applyBackgroundMode() {
+  const stageClass = `background-${backgroundMode}`;
+  stage.classList.remove("background-camera","background-black","background-white","background-custom","background-transparent");
+  stage.classList.add(stageClass);
+  if (backgroundMode === "custom" && customBackgroundImage) {
+    stage.style.setProperty("--custom-background-image", `url("${customBackgroundImage}")`);
+  } else {
+    stage.style.removeProperty("--custom-background-image");
+  }
+  if (video) video.style.visibility = backgroundMode === "camera" ? "visible" : "hidden";
+}
+
+function updateBackgroundButton() {
+  const labels = {camera:"📷", black:"⬛", white:"⬜", custom:"🖼️", transparent:"▧"};
+  const names = {camera:"Camera", black:"Black background", white:"White canvas", custom:"Custom image", transparent:"Transparent canvas"};
+  backgroundButton.textContent = labels[backgroundMode];
+  backgroundButton.title = `Background: ${names[backgroundMode]}`;
+  backgroundButton.setAttribute("aria-label", `Background: ${names[backgroundMode]}`);
+}
+
+function cycleBackground() {
+  stopDrawingForUI();
+  const index = BACKGROUNDS.indexOf(backgroundMode);
+  backgroundMode = BACKGROUNDS[(index + 1) % BACKGROUNDS.length];
+  if (backgroundMode === "custom" && !customBackgroundImage) {
+    applyBackgroundMode();
+    updateBackgroundButton();
+    backgroundInput?.click();
+    return;
+  }
+  applyBackgroundMode();
+  updateBackgroundButton();
+  showGesture(`🖼️ ${backgroundButton.title.replace("Background: ","")}`);
+}
+
+function selectCustomBackground() {
+  stopDrawingForUI();
+  backgroundInput?.click();
+}
+
+function handleBackgroundButton() {
+  cycleBackground();
 }
 
 function resizeCanvases() {
@@ -419,8 +468,7 @@ function savePng() {
   out.width = Math.round(rect.width * 2);
   out.height = Math.round(rect.height * 2);
   const ctx = out.getContext("2d");
-  ctx.fillStyle = "#05070d";
-  ctx.fillRect(0, 0, out.width, out.height);
+  drawExportBackground(ctx, out.width, out.height);
   ctx.save();
   ctx.scale(2, 2);
   for (const stroke of strokes) {
@@ -469,6 +517,21 @@ function savePng() {
   saveToGallery(dataUrl);
 }
 
+function drawExportBackground(ctx, width, height) {
+  if (backgroundMode === "transparent") return;
+  ctx.save();
+  if (backgroundMode === "black") {
+    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, width, height);
+  } else if (backgroundMode === "white") {
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, width, height);
+  } else if (backgroundMode === "custom" && customBackgroundImage) {
+    const scale = Math.max(width / customBackgroundImage.naturalWidth, height / customBackgroundImage.naturalHeight);
+    const dw = customBackgroundImage.naturalWidth * scale, dh = customBackgroundImage.naturalHeight * scale;
+    ctx.drawImage(customBackgroundImage, (width - dw) / 2, (height - dh) / 2, dw, dh);
+  }
+  ctx.restore();
+}
+
 function drawCompositeFrame(ctx, canvasWidth, canvasHeight, includeCursor = true) {
   if (!video.videoWidth || !video.videoHeight) return false;
   const vw = video.videoWidth, vh = video.videoHeight;
@@ -476,12 +539,13 @@ function drawCompositeFrame(ctx, canvasWidth, canvasHeight, includeCursor = true
   const dw = vw * scale, dh = vh * scale;
   const ox = (canvasWidth - dw) / 2, oy = (canvasHeight - dh) / 2;
   ctx.save();
-  ctx.fillStyle = "#03050a";
-  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-  ctx.translate(canvasWidth, 0);
-  ctx.scale(-1, 1);
-  ctx.globalAlpha = 0.76;
-  ctx.drawImage(video, ox, oy, dw, dh);
+  drawExportBackground(ctx, canvasWidth, canvasHeight);
+  if (backgroundMode === "camera") {
+    ctx.translate(canvasWidth, 0);
+    ctx.scale(-1, 1);
+    ctx.globalAlpha = 0.76;
+    ctx.drawImage(video, ox, oy, dw, dh);
+  }
   ctx.restore();
   ctx.globalAlpha = 1;
   ctx.drawImage(drawCanvas, 0, 0, canvasWidth, canvasHeight);
