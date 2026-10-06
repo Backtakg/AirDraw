@@ -779,14 +779,6 @@ function isPinch(hand) {
   return distance(hand[4], hand[8]) / palm < 0.42;
 }
 
-function isPeaceGesture(hand) {
-  const indexUp = fingerExtended(hand, 8, 6);
-  const middleUp = fingerExtended(hand, 12, 10);
-  const ringDown = !fingerExtended(hand, 16, 14);
-  const pinkyDown = !fingerExtended(hand, 20, 18);
-  return indexUp && middleUp && ringDown && pinkyDown;
-}
-
 function isOpenPalm(hand) {
   return [8, 12, 16, 20].every((tip, i) => fingerExtended(hand, tip, [6, 10, 14, 18][i]));
 }
@@ -811,15 +803,6 @@ function isThumbUpGesture(hand) {
     thumb.y < hand[6].y &&
     distance(thumb, wrist) / palm > 1.25 &&
     otherFingersDown;
-}
-
-function cycleToolByGesture() {
-  stopDrawingForUI();
-  tool = tool === "brush" ? "eraser" : "brush";
-  document.querySelectorAll(".tool").forEach(button => {
-    button.classList.toggle("active", button.dataset.tool === tool);
-  });
-  showGesture(tool === "brush" ? "✌️ Brush selected" : "✌️ Eraser selected");
 }
 
 function handleGesture(hand) {
@@ -865,13 +848,6 @@ function handleGesture(hand) {
     gestureCooldownUntil = now + 900;
     lastGestureName = "thumb";
     return "thumb";
-  }
-
-  if (isPeaceGesture(hand)) {
-    cycleToolByGesture();
-    gestureCooldownUntil = now + 900;
-    lastGestureName = "peace";
-    return "peace";
   }
 
   if (isIndexOnly(hand)) {
@@ -931,8 +907,8 @@ function processResults(results) {
     return;
   }
 
-  // Peace switches brush/eraser and must never become a drawing stroke.
-  if (gesture === "peace" || gesture === "thumb") {
+  // Gesture-based undo is a strict non-drawing action.
+  if (gesture === "thumb") {
     endStroke();
     drawPaused = true;
     return;
