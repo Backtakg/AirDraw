@@ -77,8 +77,6 @@ let opacity = 1;
 let shapeMode = "freehand";
 let shapeStart = null;
 let gestureCooldownUntil = 0;
-let openPalmSince = 0;
-let openPalmCleared = false;
 let lastGestureName = "";
 const EFFECTS = ["normal", "glow", "neon", "marker", "pencil"];
 const SHAPES = ["freehand", "line", "rectangle", "circle"];
@@ -1278,10 +1276,6 @@ function isPinch(hand) {
   return distance(hand[4], hand[8]) / palm < 0.42;
 }
 
-function isOpenPalm(hand) {
-  return [8, 12, 16, 20].every((tip, i) => fingerExtended(hand, tip, [6, 10, 14, 18][i]));
-}
-
 function isIndexOnly(hand) {
   // Be tolerant of natural finger movement: the index being extended is
   // enough to draw. Dedicated gestures are checked before this function.
@@ -1306,35 +1300,12 @@ function handleGesture(hand) {
   const now = performance.now();
 
   if (isPinch(hand)) {
-    openPalmSince = 0;
-    openPalmCleared = false;
     return "pinch";
   }
 
   if (isFist(hand)) {
-    openPalmSince = 0;
-    openPalmCleared = false;
     return "fist";
   }
-
-  if (isOpenPalm(hand)) {
-    endStroke();
-    drawPaused = true;
-    if (!openPalmSince) openPalmSince = now;
-    if (!openPalmCleared && now - openPalmSince >= 1500) {
-      clearDrawing();
-      showGesture("🖐️ Canvas cleared");
-      openPalmCleared = true;
-      gestureCooldownUntil = now + 800;
-    } else if (lastGestureName !== "open") {
-      showGesture("🖐️ Open palm — paused");
-    }
-    lastGestureName = "open";
-    return "open";
-  }
-
-  openPalmSince = 0;
-  openPalmCleared = false;
 
   if (now < gestureCooldownUntil) return lastGestureName;
 
@@ -1359,12 +1330,12 @@ function handleGesture(hand) {
 function processResults(results){
   cursorCtx.clearRect(0,0,stage.clientWidth,stage.clientHeight);
   const hs=results.multiHandLandmarks||[]; if(hs.length)setStatus(hs.length>1?"Two hands detected":"Hand detected",true);else if(trackingReady)setStatus("Tracking ready — show your hand",true);
-  if(!hs.length){smoothedPoint=null;controlHand=null;endStroke();clearAirControlHover();drawPaused=false;openPalmSince=0;openPalmCleared=false;lastGestureName="";return;}
+  if(!hs.length){smoothedPoint=null;controlHand=null;endStroke();clearAirControlHover();drawPaused=false;lastGestureName="";return;}
   let drawHand=hs[0];controlHand=null;if(twoHandMode&&hs.length>1){controlHand=hs[1];applyTwoHandControls(controlHand);}
   const raw=canvasPoint(drawHand[8]);smoothedPoint=raw;const control=getAirControlAt(smoothedPoint);updateAirControlHover(control);
   const gesture=handleGesture(drawHand),selecting=gesture==="pinch",selected=selecting?updateAirControlDwell(control):false;drawCursor(smoothedPoint,selecting||Boolean(control));
   if(!selecting){clearAirControlHover();dwellControl=null;dwellStartedAt=0;selectedAirControl=null;}
-  if(gesture==="fist"||gesture==="open"||gesture==="thumb"){endStroke();drawPaused=true;return;}
+  if(gesture==="fist"||gesture==="thumb"){endStroke();drawPaused=true;return;}
   drawPaused=false;if(selecting||selected){endStroke();return;}if(gesture!=="index"){endStroke();return;}
   if(uiInteractionLock){endStroke();smoothedPoint=null;uiInteractionLock=false;return;}
   if(!activeStroke)beginStroke(smoothedPoint);else addPoint(smoothedPoint);
