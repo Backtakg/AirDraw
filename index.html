@@ -90,6 +90,7 @@
             <button class="icon-btn feature-btn capture-btn" id="snapshotButton" title="Take Snapshot" aria-label="Take Snapshot">📸</button>
             <button class="icon-btn feature-btn capture-btn" id="recordButton" title="Record session" aria-label="Record session">●</button>
             <button class="icon-btn feature-btn capture-btn" id="textButton" title="Air writing to text" aria-label="Air writing to text">🔤</button>
+            <button class="icon-btn feature-btn capture-btn" id="aiButton" title="AI understand drawing" aria-label="AI understand drawing">✨</button>
           </div>
 
           <div class="colors" aria-label="Colors">
@@ -167,6 +168,28 @@
       </div>
     </div>
 
+    <div class="ai-modal" id="aiModal" hidden>
+      <div class="ai-panel">
+        <div class="ai-header">
+          <div>
+            <strong>✨ AI Drawing Understanding</strong>
+            <span>Identify drawings, read handwriting, and explain your sketch.</span>
+          </div>
+          <button class="icon-btn ai-close" id="aiClose" aria-label="Close AI">×</button>
+        </div>
+        <label class="ai-label" for="aiApiKey">Gemini API key</label>
+        <input id="aiApiKey" class="ai-input" type="password" autocomplete="off" placeholder="Paste your Gemini API key">
+        <label class="ai-label" for="aiPrompt">What should AI understand?</label>
+        <textarea id="aiPrompt" class="ai-input ai-prompt" spellcheck="false" placeholder="e.g. Read the text and tell me what this drawing represents."></textarea>
+        <textarea id="aiOutput" class="ai-output" readonly placeholder="AI analysis will appear here…"></textarea>
+        <p class="ai-status" id="aiStatus">Your API key stays in this browser and is sent only to Google Gemini when you analyze.</p>
+        <div class="ai-actions">
+          <button class="secondary text-action" id="analyzeAIButton">✨ Analyze drawing</button>
+          <button class="primary text-action" id="aiCloseSecondary" type="button">Close</button>
+        </div>
+      </div>
+    </div>
+
     <div class="gesture-toast" id="gestureToast" hidden></div>
     <div class="hint" id="hint" hidden>
       <span>☝️ Index</span> draw · <span>✊ Fist</span> pause · <span>👍</span> undo · <span>🤏 Pinch</span> select
@@ -179,6 +202,6 @@
     </footer>
   </main>
 
-  <script src="app.js?v=29"></script>
+  <script src="app.js?v=30"></script>
 </body>
 </html>

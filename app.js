@@ -101,6 +101,8 @@ let recordingCanvas = null;
 let recordingCtx = null;
 let recordingFrameId = 0;
 let tesseractLoading = null;
+const GEMINI_MODEL = "gemini-3.8-flash";
+const GEMINI_KEY_STORAGE = "airdraw-gemini-api-key";
 let backgroundMode = "camera";
 let customBackgroundImage = null;
 const BACKGROUNDS = ["camera", "black", "white", "custom", "transparent"];
@@ -196,10 +198,15 @@ function getGradientPaint(ctx, stroke) {
 }
 
 function setStrokePaint(ctx, stroke) {
-  const paint = stroke.colorMode === "solid" || !stroke.colorMode ? stroke.color : getGradientPaint(ctx, stroke);
+  const paint = stroke.colorMode === "solid" || !stroke.colorMode ? (stroke.color || "#ffffff") : getGradientPaint(ctx, stroke);
   ctx.strokeStyle = paint;
   ctx.fillStyle = paint;
   return paint;
+}
+
+function colorWithAlpha(value, alphaHex = "33") {
+  if (/^#[0-9a-f]{6}$/i.test(value || "")) return value + alphaHex;
+  return value || "#ffffff";
 }
 
 function withTimeout(promise, milliseconds, message) {
@@ -536,7 +543,12 @@ function deleteLayer(id) {
 
 function redrawAllLayers() {
   const rect = stage.getBoundingClientRect();
-  drawCtx.clearRect(0, 0, rect.width, rect.height);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  drawCtx.save();
+  drawCtx.setTransform(1, 0, 0, 1, 0, 0);
+  drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+  drawCtx.restore();
+  drawCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
   for (const layer of layers) {
     if (!layer.visible) continue;
     if (layer.snapshot) {
@@ -582,7 +594,7 @@ function drawCursor(point, active) {
   cursorCtx.beginPath();
   cursorCtx.arc(point.x, point.y, size / 2, 0, Math.PI * 2);
   cursorCtx.fillStyle = active
-    ? (tool === "eraser" ? "rgba(255,255,255,.12)" : color + "33")
+    ? (tool === "eraser" ? "rgba(255,255,255,.12)" : colorWithAlpha(color))
     : "rgba(255,255,255,.05)";
   cursorCtx.fill();
   cursorCtx.lineWidth = 2;
@@ -698,6 +710,7 @@ function beginStroke(point) {
   const activeLayer = layers.find(layer => layer.id === activeLayerId);
   if (!activeLayer) ensureLayers();
   strokes.push(activeStroke);
+  redraw();
   const currentLayer = layers.find(layer => layer.id === activeLayerId);
   if (currentLayer && currentLayer.strokes !== strokes) currentLayer.strokes = strokes;
   redoStack = [];
@@ -1020,6 +1033,107 @@ function stopRecording() {
   mediaRecorder = null;
   recordingCanvas = null;
   recordingCtx = null;
+}
+
+function openAIUnderstanding() {
+  stopDrawingForUI();
+  const key = localStorage.getItem(GEMINI_KEY_STORAGE) || "";
+  const input = document.querySelector("#aiApiKey");
+  if (input) input.value = key;
+  const output = document.querySelector("#aiOutput");
+  const status = document.querySelector("#aiStatus");
+  if (output) output.value = "";
+  if (status) status.textContent = key
+    ? "Ready. Ask AI to identify the drawing, read handwriting, or explain it."
+    : "Add your Gemini API key. It is stored only in this browser.";
+  document.querySelector("#aiModal").hidden = false;
+}
+
+function closeAIUnderstanding() {
+  document.querySelector("#aiModal").hidden = true;
+}
+
+function canvasToJpegData() {
+  const source = document.createElement("canvas");
+  const rect = stage.getBoundingClientRect();
+  source.width = Math.max(900, Math.round(rect.width * 1.5));
+  source.height = Math.max(600, Math.round(rect.height * 1.5));
+  const ctx = source.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, source.width, source.height);
+  ctx.save();
+  ctx.scale(source.width / Math.max(rect.width, 1), source.height / Math.max(rect.height, 1));
+  for (const layer of layers) {
+    if (!layer.visible || layer.snapshot) continue;
+    drawStrokes(ctx, layer.strokes);
+  }
+  ctx.restore();
+  return source.toDataURL("image/jpeg", 0.9).split(",")[1];
+}
+
+async function analyzeDrawingWithAI() {
+  const keyInput = document.querySelector("#aiApiKey");
+  const promptInput = document.querySelector("#aiPrompt");
+  const output = document.querySelector("#aiOutput");
+  const status = document.querySelector("#aiStatus");
+  const key = (keyInput?.value || "").trim();
+  if (!key) {
+    status.textContent = "Enter your Gemini API key first.";
+    keyInput?.focus();
+    return;
+  }
+  if (!layers.some(layer => layer.strokes?.some(stroke => stroke.points?.length && stroke.tool !== "eraser"))) {
+    status.textContent = "Draw something first.";
+    return;
+  }
+
+  localStorage.setItem(GEMINI_KEY_STORAGE, key);
+  const button = document.querySelector("#analyzeAIButton");
+  if (button) button.disabled = true;
+  status.textContent = "AI is looking at your drawing…";
+  output.value = "";
+
+  try {
+    const imageData = canvasToJpegData();
+    const prompt = (promptInput?.value || "").trim() ||
+      "Understand this AirDraw canvas. Identify what is drawn, read any visible handwritten text, explain the drawing briefly, and distinguish text from shapes or objects. If handwriting is uncertain, say so instead of guessing.";
+
+    const response = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": key
+        },
+        body: JSON.stringify({
+          contents: [{
+            role: "user",
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: "image/jpeg", data: imageData } }
+            ]
+          }]
+        })
+      }
+    );
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error?.message || "Gemini API request failed.");
+    const text = data?.candidates?.[0]?.content?.parts
+      ?.map(part => part.text || "")
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+    if (!text) throw new Error("The AI returned no text.");
+    output.value = text;
+    status.textContent = "AI analysis complete.";
+  } catch (error) {
+    console.error("AirDraw AI error:", error);
+    status.textContent = "AI error: " + (error?.message || "Could not analyze the drawing.");
+  } finally {
+    if (button) button.disabled = false;
+  }
 }
 
 function openTextRecognition() {
@@ -1637,6 +1751,13 @@ syncColorModeButtons();
 snapshotButton.addEventListener("click", takeSnapshot);
 recordButton.addEventListener("click", () => recording ? stopRecording() : startRecording());
 textButton.addEventListener("click", openTextRecognition);
+document.querySelector("#aiButton")?.addEventListener("click", openAIUnderstanding);
+document.querySelector("#aiClose")?.addEventListener("click", closeAIUnderstanding);
+document.querySelector("#analyzeAIButton")?.addEventListener("click", analyzeDrawingWithAI);
+document.querySelector("#aiCloseSecondary")?.addEventListener("click", closeAIUnderstanding);
+document.querySelector("#aiModal")?.addEventListener("click", event => {
+  if (event.target.id === "aiModal") closeAIUnderstanding();
+});
 textClose.addEventListener("click", closeTextRecognition);
 recognizeTextButton.addEventListener("click", recognizeAirText);
 document.getElementById("copyTextButton").addEventListener("click", async () => {
