@@ -35,6 +35,7 @@ let started = false;
 let selectedAirControl = null;
 let fistHeld = false;
 let drawPaused = false;
+let uiInteractionLock = false;
 
 function setStatus(text, live = false) {
   statusText.textContent = text;
@@ -79,9 +80,6 @@ function canvasPoint(landmark) {
   const videoWidth = video.videoWidth || rect.width;
   const videoHeight = video.videoHeight || rect.height;
 
-  // MediaPipe reports the fingertip in the original camera frame, while the
-  // video is displayed with object-fit: cover and mirrored. Map landmark 8
-  // into the exact visible camera pixels before drawing/selection.
   const scale = Math.max(rect.width / videoWidth, rect.height / videoHeight);
   const displayedWidth = videoWidth * scale;
   const displayedHeight = videoHeight * scale;
@@ -102,8 +100,6 @@ function distance(a, b) {
 }
 
 function isFist(hand) {
-  // A fist has the four finger tips close to the palm while the thumb
-  // is also folded inward. Use normalized palm size for distance stability.
   const wrist = hand[0];
   const palm = Math.max(distance(wrist, hand[9]), 0.001);
   const fingertips = [8, 12, 16, 20];
@@ -111,8 +107,6 @@ function isFist(hand) {
   const thumbFolded = distance(hand[4], hand[5]) / palm < 0.85;
   return folded && thumbFolded;
 }
-
-
 
 function isPointInsideRect(point, rect) {
   return point.x >= rect.left && point.x <= rect.right &&
@@ -129,8 +123,6 @@ function getAirControlAt(point) {
   const controls = document.querySelectorAll(".controls button");
   const stageRect = stage.getBoundingClientRect();
 
-  // Hand coordinates are local to the camera/stage. getBoundingClientRect()
-  // uses viewport coordinates, so convert each AR button into stage space.
   for (const button of controls) {
     if (button.disabled || button.offsetParent === null) continue;
     const rect = button.getBoundingClientRect();
@@ -163,6 +155,12 @@ function activateAirControl(button) {
   if (!button || button.disabled) return;
   const now = performance.now();
   if (now - lastAirSelectionAt < 500) return;
+
+  // Selecting a control is always a hard pen-up event.
+  endStroke();
+  smoothedPoint = null;
+  uiInteractionLock = true;
+
   lastAirSelectionAt = now;
   button.click();
   button.classList.remove("air-hover");
@@ -178,7 +176,6 @@ function updateAirControlDwell(control) {
     return false;
   }
 
-  // One selection per visit. Move away and back to select again.
   if (selectedAirControl === control) return false;
 
   if (dwellControl !== control) {
@@ -231,7 +228,9 @@ function addPoint(point) {
   }
 }
 
-function endStroke() { activeStroke = null; }
+function endStroke() {
+  activeStroke = null;
+}
 
 function drawSmoothStroke(ctx, points) {
   if (points.length === 1) {
@@ -305,14 +304,15 @@ function updateHistoryButtons() {
 }
 
 function undo() {
+  endStroke();
   if (!strokes.length) return;
   redoStack.push(strokes.pop());
-  activeStroke = null;
   redraw();
   updateHistoryButtons();
 }
 
 function redo() {
+  endStroke();
   if (!redoStack.length) return;
   strokes.push(redoStack.pop());
   redraw();
@@ -320,15 +320,16 @@ function redo() {
 }
 
 function clearDrawing() {
+  endStroke();
   if (!strokes.length) return;
   redoStack = strokes.slice();
   strokes = [];
-  activeStroke = null;
   redraw();
   updateHistoryButtons();
 }
 
 function savePng() {
+  endStroke();
   const rect = stage.getBoundingClientRect();
   const out = document.createElement("canvas");
   out.width = Math.round(rect.width * 2);
@@ -381,16 +382,12 @@ function processResults(results) {
     return;
   }
 
-  // Landmark 8 is MediaPipe's actual index-finger TIP.
-  // Use it directly: no laggy smoothing, so the AR cursor stays on the
-  // fingertip itself.
   const raw = canvasPoint(hand[8]);
   smoothedPoint = raw;
 
   const control = getAirControlAt(smoothedPoint);
   updateAirControlHover(control);
 
-  // Fist = pause/hold drawing. Open hand = resume drawing.
   const fist = isFist(hand);
   if (fist) {
     fistHeld = true;
@@ -401,20 +398,28 @@ function processResults(results) {
     drawPaused = false;
   }
 
-  // Point at a control and hold still briefly to select it. No pinch required.
   const selected = updateAirControlDwell(control);
   drawCursor(smoothedPoint, Boolean(control));
 
+  // A control interaction is a strict pen-up zone. After a control has
+  // been selected, keep drawing disabled until the fingertip has completely
+  // left the controls. This prevents the next tracking frame from joining
+  // the old stroke to the newly selected tool/color.
   if (control || drawPaused || fist) {
     endStroke();
     return;
   }
 
-  // Anywhere outside the controls, moving the index finger draws continuously.
+  if (uiInteractionLock) {
+    endStroke();
+    smoothedPoint = null;
+    uiInteractionLock = false;
+    return;
+  }
+
   if (!activeStroke) beginStroke(smoothedPoint);
   else addPoint(smoothedPoint);
 
-  // A control selection is only possible after the finger leaves the toolbar.
   if (selected) clearAirControlHover();
 }
 
@@ -495,9 +500,6 @@ async function startHandTracking() {
     closeHands();
     try {
       setupHands(assetBase);
-
-      // MediaPipe loads its WASM/model assets on the first send().
-      // Wait for that real initialization before declaring tracking ready.
       await withTimeout(
         hands.send({ image: video }),
         20000,
@@ -553,7 +555,6 @@ async function start() {
       throw new Error("This browser does not provide camera access.");
     }
 
-    // Camera is requested BEFORE any external hand-tracking code.
     if (!stream) {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
@@ -561,7 +562,6 @@ async function start() {
           audio: false
         });
       } catch (cameraError) {
-        // Some mobile browsers reject camera constraints even when a camera is available.
         if (cameraError?.name === "OverconstrainedError" || cameraError?.name === "NotReadableError") {
           stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         } else {
@@ -586,7 +586,6 @@ async function start() {
       await video.play();
       resizeCanvases();
 
-      // Camera is now visible and usable independently of hand tracking.
       hideLoading();
       hint.hidden = false;
       setStatus("Camera live", true);
@@ -652,6 +651,7 @@ async function start() {
     setStatus("Camera unavailable");
   }
 }
+
 function stop() {
   cancelAnimationFrame(animationId);
   closeHands();
@@ -663,8 +663,16 @@ function stop() {
   setStatus("Camera off");
 }
 
+function stopDrawingForUI() {
+  // Physical touch/mouse clicks on the toolbar must also break the stroke.
+  endStroke();
+  smoothedPoint = null;
+  uiInteractionLock = true;
+}
+
 document.querySelectorAll(".tool").forEach(button => {
   button.addEventListener("click", () => {
+    stopDrawingForUI();
     document.querySelectorAll(".tool").forEach(b => b.classList.remove("active"));
     button.classList.add("active");
     tool = button.dataset.tool;
@@ -673,6 +681,7 @@ document.querySelectorAll(".tool").forEach(button => {
 
 document.querySelectorAll(".color").forEach(button => {
   button.addEventListener("click", () => {
+    stopDrawingForUI();
     document.querySelectorAll(".color").forEach(b => b.classList.remove("active"));
     button.classList.add("active");
     color = button.dataset.color;
@@ -681,15 +690,14 @@ document.querySelectorAll(".color").forEach(button => {
 });
 
 startButton.addEventListener("click", start);
-undoButton.addEventListener("click", undo);
-redoButton.addEventListener("click", redo);
-clearButton.addEventListener("click", clearDrawing);
-saveButton.addEventListener("click", savePng);
+undoButton.addEventListener("click", () => { stopDrawingForUI(); undo(); });
+redoButton.addEventListener("click", () => { stopDrawingForUI(); redo(); });
+clearButton.addEventListener("click", () => { stopDrawingForUI(); clearDrawing(); });
+saveButton.addEventListener("click", () => { stopDrawingForUI(); savePng(); });
+
 window.addEventListener("resize", resizeCanvases);
 window.addEventListener("beforeunload", stop);
 
-// Try to start automatically; if the browser requires a gesture,
-// the Start AirDraw button remains available.
 window.addEventListener("DOMContentLoaded", () => {
   setTimeout(() => start(), 250);
 });
