@@ -24,6 +24,11 @@ const galleryButton = document.querySelector("#galleryButton");
 const galleryModal = document.querySelector("#galleryModal");
 const galleryClose = document.querySelector("#galleryClose");
 const galleryGrid = document.querySelector("#galleryGrid");
+const opacityDownButton = document.querySelector("#opacityDownButton");
+const opacityUpButton = document.querySelector("#opacityUpButton");
+const opacityDisplay = document.querySelector("#opacityDisplay");
+const shapeButton = document.querySelector("#shapeButton");
+const gestureToast = document.querySelector("#gestureToast");
 
 let hands = null;
 let stream = null;
@@ -35,7 +40,12 @@ let tool = "brush";
 let color = "#ffffff";
 let brushSize = 7;
 let brushEffect = "neon";
+let opacity = 1;
+let shapeMode = "freehand";
+let shapeStart = null;
+let gestureCooldownUntil = 0;
 const EFFECTS = ["neon", "normal", "soft"];
+const SHAPES = ["freehand", "line", "rectangle", "circle"];
 let eraserSize = 38;
 let strokes = [];
 let redoStack = [];
@@ -228,6 +238,8 @@ function beginStroke(point) {
     color,
     size: tool === "eraser" ? eraserSize : brushSize,
     effect: brushEffect,
+    opacity,
+    shape: shapeMode,
     points: [point]
   };
   strokes.push(activeStroke);
@@ -237,6 +249,11 @@ function beginStroke(point) {
 
 function addPoint(point) {
   if (!activeStroke) return;
+  if (activeStroke.shape !== "freehand") {
+    activeStroke.points = [activeStroke.points[0], point];
+    redraw();
+    return;
+  }
   const last = activeStroke.points[activeStroke.points.length - 1];
   if (!last || Math.hypot(point.x - last.x, point.y - last.y) > 1.5) {
     activeStroke.points.push(point);
@@ -246,6 +263,7 @@ function addPoint(point) {
 
 function endStroke() {
   activeStroke = null;
+  shapeStart = null;
 }
 
 function drawSmoothStroke(ctx, points) {
@@ -283,6 +301,20 @@ function drawSmoothStroke(ctx, points) {
   ctx.stroke();
 }
 
+function drawShape(ctx, stroke) {
+  const a = stroke.points[0], b = stroke.points[stroke.points.length - 1];
+  ctx.beginPath();
+  if (stroke.shape === "line") {
+    ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+  } else if (stroke.shape === "rectangle") {
+    ctx.rect(a.x, a.y, b.x - a.x, b.y - a.y);
+  } else if (stroke.shape === "circle") {
+    const radius = Math.hypot(b.x - a.x, b.y - a.y);
+    ctx.arc(a.x, a.y, radius, 0, Math.PI * 2);
+  }
+  ctx.stroke();
+}
+
 function redraw() {
   const rect = stage.getBoundingClientRect();
   drawCtx.clearRect(0, 0, rect.width, rect.height);
@@ -292,6 +324,7 @@ function redraw() {
     drawCtx.lineCap = "round";
     drawCtx.lineJoin = "round";
     drawCtx.lineWidth = stroke.size;
+    drawCtx.globalAlpha = stroke.opacity ?? 1;
     if (stroke.tool === "eraser") {
       drawCtx.globalCompositeOperation = "destination-out";
       drawCtx.strokeStyle = "#000";
@@ -308,7 +341,9 @@ function redraw() {
         drawCtx.shadowBlur = 0;
       }
     }
-    if (stroke.points.length === 1) {
+    if (stroke.shape && stroke.shape !== "freehand" && stroke.points.length >= 2) {
+      drawShape(drawCtx, stroke);
+    } else if (stroke.points.length === 1) {
       const p = stroke.points[0];
       drawCtx.beginPath();
       drawCtx.arc(p.x, p.y, stroke.size / 2, 0, Math.PI * 2);
@@ -368,13 +403,16 @@ function savePng() {
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.lineWidth = stroke.size;
+    ctx.globalAlpha = stroke.opacity ?? 1;
     ctx.globalCompositeOperation = stroke.tool === "eraser" ? "destination-out" : "source-over";
     ctx.strokeStyle = stroke.tool === "eraser" ? "#000" : stroke.color;
     if (stroke.tool !== "eraser") {
       ctx.shadowColor = stroke.color;
       ctx.shadowBlur = Math.min(stroke.size * 2.2, 28);
     }
-    if (stroke.points.length === 1) {
+    if (stroke.shape && stroke.shape !== "freehand" && stroke.points.length >= 2) {
+      drawShape(ctx, stroke);
+    } else if (stroke.points.length === 1) {
       const p = stroke.points[0];
       ctx.beginPath();
       ctx.arc(p.x, p.y, stroke.size / 2, 0, Math.PI * 2);
@@ -396,6 +434,32 @@ function savePng() {
 
 function updateSizeDisplay() {
   sizeDisplay.textContent = brushSize;
+}
+
+function updateOpacityDisplay() {
+  opacityDisplay.textContent = Math.round(opacity * 100);
+}
+
+function changeOpacity(delta) {
+  stopDrawingForUI();
+  opacity = Math.max(0.1, Math.min(1, opacity + delta));
+  updateOpacityDisplay();
+}
+
+function cycleShape() {
+  stopDrawingForUI();
+  shapeMode = SHAPES[(SHAPES.indexOf(shapeMode) + 1) % SHAPES.length];
+  const labels = {freehand:"○", line:"╱", rectangle:"□", circle:"◯"};
+  shapeButton.textContent = labels[shapeMode];
+  shapeButton.title = `Shape: ${shapeMode}`;
+  showGesture(`Shape: ${shapeMode}`);
+}
+
+function showGesture(message) {
+  gestureToast.textContent = message;
+  gestureToast.hidden = false;
+  clearTimeout(showGesture.timer);
+  showGesture.timer = setTimeout(() => gestureToast.hidden = true, 900);
 }
 
 function changeBrushSize(delta) {
@@ -475,6 +539,23 @@ galleryGrid.addEventListener("click", event => {
   }
 });
 
+function handleGesture(hand) {
+  const now = performance.now();
+  if (now < gestureCooldownUntil) return;
+  // Thumb-up: undo. Two-finger V: cycle brush effect.
+  const wrist = hand[0], thumb = hand[4], index = hand[8], middle = hand[12];
+  const palm = Math.max(distance(wrist, hand[9]), 0.001);
+  const thumbUp = thumb.y < hand[3].y && thumb.y < hand[6].y && distance(thumb, wrist) / palm > 1.25;
+  const indexUp = distance(index, wrist) / palm > 1.45;
+  const middleUp = distance(middle, wrist) / palm > 1.45;
+  if (thumbUp && !indexUp && !middleUp) {
+    stopDrawingForUI(); undo(); showGesture("Gesture: Undo"); gestureCooldownUntil = now + 900; return;
+  }
+  if (indexUp && middleUp) {
+    stopDrawingForUI(); cycleEffect(); showGesture("Gesture: Effect changed"); gestureCooldownUntil = now + 900;
+  }
+}
+
 function processResults(results) {
   cursorCtx.clearRect(0, 0, stage.clientWidth, stage.clientHeight);
   const hand = results.multiHandLandmarks?.[0];
@@ -495,6 +576,7 @@ function processResults(results) {
   updateAirControlHover(control);
 
   const fist = isFist(hand);
+  if (!getAirControlAt(smoothedPoint)) handleGesture(hand);
   if (fist) {
     fistHeld = true;
     drawPaused = true;
@@ -800,6 +882,10 @@ undoButton.addEventListener("click", () => { stopDrawingForUI(); undo(); });
 redoButton.addEventListener("click", () => { stopDrawingForUI(); redo(); });
 clearButton.addEventListener("click", () => { stopDrawingForUI(); clearDrawing(); });
 saveButton.addEventListener("click", () => { stopDrawingForUI(); savePng(); });
+opacityDownButton.addEventListener("click", () => changeOpacity(-0.1));
+opacityUpButton.addEventListener("click", () => changeOpacity(0.1));
+shapeButton.addEventListener("click", cycleShape);
+updateOpacityDisplay();
 sizeDownButton.addEventListener("click", () => changeBrushSize(-2));
 sizeUpButton.addEventListener("click", () => changeBrushSize(2));
 effectButton.addEventListener("click", cycleEffect);
