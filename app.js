@@ -16,17 +16,17 @@ const undoButton = document.querySelector("#undoButton");
 const redoButton = document.querySelector("#redoButton");
 const clearButton = document.querySelector("#clearButton");
 const saveButton = document.querySelector("#saveButton");
-const sizeDownButton = document.querySelector("#sizeDownButton");
 const sizeUpButton = document.querySelector("#sizeUpButton");
 const sizeDisplay = document.querySelector("#sizeDisplay");
+const sizeSlider = document.querySelector("#sizeSlider");
 const effectButton = document.querySelector("#effectButton");
 const galleryButton = document.querySelector("#galleryButton");
 const galleryModal = document.querySelector("#galleryModal");
 const galleryClose = document.querySelector("#galleryClose");
 const galleryGrid = document.querySelector("#galleryGrid");
-const opacityDownButton = document.querySelector("#opacityDownButton");
 const opacityUpButton = document.querySelector("#opacityUpButton");
 const opacityDisplay = document.querySelector("#opacityDisplay");
+const opacitySlider = document.querySelector("#opacitySlider");
 const shapeButton = document.querySelector("#shapeButton");
 const gestureToast = document.querySelector("#gestureToast");
 const snapshotButton = document.querySelector("#snapshotButton");
@@ -55,7 +55,7 @@ let gestureCooldownUntil = 0;
 let openPalmSince = 0;
 let openPalmCleared = false;
 let lastGestureName = "";
-const EFFECTS = ["neon", "normal", "soft"];
+const EFFECTS = ["normal", "glow", "neon", "marker", "pencil"];
 const SHAPES = ["freehand", "line", "rectangle", "circle"];
 let eraserSize = 38;
 let strokes = [];
@@ -351,10 +351,18 @@ function redraw() {
       drawCtx.strokeStyle = stroke.color;
       if (stroke.effect === "neon") {
         drawCtx.shadowColor = stroke.color;
-        drawCtx.shadowBlur = Math.min(stroke.size * 2.2, 28);
-      } else if (stroke.effect === "soft") {
+        drawCtx.shadowBlur = Math.min(stroke.size * 2.6, 34);
+      } else if (stroke.effect === "glow") {
         drawCtx.shadowColor = stroke.color;
-        drawCtx.shadowBlur = Math.min(stroke.size * 0.9, 12);
+        drawCtx.shadowBlur = Math.min(stroke.size * 1.35, 20);
+      } else if (stroke.effect === "marker") {
+        drawCtx.lineWidth = stroke.size * 1.35;
+        drawCtx.globalAlpha *= 0.82;
+        drawCtx.shadowBlur = 0;
+      } else if (stroke.effect === "pencil") {
+        drawCtx.lineWidth = Math.max(1.2, stroke.size * 0.55);
+        drawCtx.globalAlpha *= 0.78;
+        drawCtx.shadowBlur = 0;
       } else {
         drawCtx.shadowBlur = 0;
       }
@@ -425,8 +433,19 @@ function savePng() {
     ctx.globalCompositeOperation = stroke.tool === "eraser" ? "destination-out" : "source-over";
     ctx.strokeStyle = stroke.tool === "eraser" ? "#000" : stroke.color;
     if (stroke.tool !== "eraser") {
-      ctx.shadowColor = stroke.color;
-      ctx.shadowBlur = Math.min(stroke.size * 2.2, 28);
+      if (stroke.effect === "neon") {
+        ctx.shadowColor = stroke.color;
+        ctx.shadowBlur = Math.min(stroke.size * 2.6, 34);
+      } else if (stroke.effect === "glow") {
+        ctx.shadowColor = stroke.color;
+        ctx.shadowBlur = Math.min(stroke.size * 1.35, 20);
+      } else if (stroke.effect === "marker") {
+        ctx.lineWidth = stroke.size * 1.35;
+        ctx.globalAlpha *= 0.82;
+      } else if (stroke.effect === "pencil") {
+        ctx.lineWidth = Math.max(1.2, stroke.size * 0.55);
+        ctx.globalAlpha *= 0.78;
+      }
     }
     if (stroke.shape && stroke.shape !== "freehand" && stroke.points.length >= 2) {
       drawShape(ctx, stroke);
@@ -665,10 +684,13 @@ async function recognizeAirText() {
 
 function updateSizeDisplay() {
   sizeDisplay.textContent = brushSize;
+  if (sizeSlider) sizeSlider.value = brushSize;
 }
 
 function updateOpacityDisplay() {
-  opacityDisplay.textContent = Math.round(opacity * 100);
+  const value = Math.round(opacity * 100);
+  opacityDisplay.textContent = value;
+  if (opacitySlider) opacitySlider.value = value;
 }
 
 function changeOpacity(delta) {
@@ -704,8 +726,10 @@ function cycleEffect() {
   stopDrawingForUI();
   const index = EFFECTS.indexOf(brushEffect);
   brushEffect = EFFECTS[(index + 1) % EFFECTS.length];
-  effectButton.textContent = brushEffect === "neon" ? "✦" : brushEffect === "normal" ? "•" : "◌";
-  effectButton.title = `Effect: ${brushEffect}`;
+  const labels = {normal:"•", glow:"◌", neon:"✦", marker:"▰", pencil:"✎"};
+  effectButton.textContent = labels[brushEffect];
+  effectButton.title = `Brush style: ${brushEffect}`;
+  effectButton.setAttribute("aria-label", `Brush style: ${brushEffect}`);
 }
 
 function galleryItems() {
@@ -1228,11 +1252,19 @@ undoButton.addEventListener("click", () => { stopDrawingForUI(); undo(); });
 redoButton.addEventListener("click", () => { stopDrawingForUI(); redo(); });
 clearButton.addEventListener("click", () => { stopDrawingForUI(); clearDrawing(); });
 saveButton.addEventListener("click", () => { stopDrawingForUI(); savePng(); });
-opacityDownButton.addEventListener("click", () => changeOpacity(-0.1));
 opacityUpButton.addEventListener("click", () => changeOpacity(0.1));
+opacitySlider?.addEventListener("input", event => {
+  stopDrawingForUI();
+  opacity = Number(event.target.value) / 100;
+  updateOpacityDisplay();
+});
 shapeButton.addEventListener("click", cycleShape);
 updateOpacityDisplay();
-sizeDownButton.addEventListener("click", () => changeBrushSize(-2));
+sizeSlider?.addEventListener("input", event => {
+  stopDrawingForUI();
+  brushSize = Number(event.target.value);
+  updateSizeDisplay();
+});
 sizeUpButton.addEventListener("click", () => changeBrushSize(2));
 effectButton.addEventListener("click", cycleEffect);
 galleryButton.addEventListener("click", openGallery);

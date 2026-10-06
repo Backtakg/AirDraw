@@ -36,7 +36,7 @@
         <div class="welcome" id="welcome">
           <div class="welcome-icon">☝</div>
           <h2>Draw with your hand</h2>
-          <p id="welcomeMessage">Gestures: ☝️ draw · ✊ pause · ✌️ switch tool · 👍 undo · 🤏 pinch to select · 🖐️ pause/hold to clear.</p>
+          <p id="welcomeMessage">Gestures: ☝️ draw · ✊ pause · 👍 undo · 🤏 pinch to select · 🖐️ pause/hold to clear.</p>
           <button class="primary" id="startButton">Start AirDraw</button>
           <p class="privacy">Your camera is processed locally in your browser.</p>
         </div>
@@ -72,12 +72,12 @@
           </div>
 
           <div class="feature-tools" aria-label="Brush options">
-            <button class="icon-btn feature-btn" id="sizeDownButton" title="Smaller brush" aria-label="Smaller brush">−</button>
+            <input class="brush-slider" id="sizeSlider" type="range" min="2" max="32" value="7" step="1" title="Brush size" aria-label="Brush size">
             <button class="icon-btn feature-btn size-display" id="sizeDisplay" title="Brush size" aria-label="Brush size">7</button>
             <button class="icon-btn feature-btn" id="sizeUpButton" title="Larger brush" aria-label="Larger brush">+</button>
             <button class="icon-btn feature-btn" id="effectButton" title="Brush effect" aria-label="Brush effect">✦</button>
             <button class="icon-btn feature-btn" id="galleryButton" title="Gallery" aria-label="Gallery">▣</button>
-            <button class="icon-btn feature-btn" id="opacityDownButton" title="Lower opacity" aria-label="Lower opacity">◐</button>
+            <input class="brush-slider opacity-slider" id="opacitySlider" type="range" min="10" max="100" value="100" step="5" title="Opacity" aria-label="Opacity">
             <button class="icon-btn feature-btn opacity-display" id="opacityDisplay" title="Opacity" aria-label="Opacity">100</button>
             <button class="icon-btn feature-btn" id="opacityUpButton" title="Raise opacity" aria-label="Raise opacity">◑</button>
             <button class="icon-btn feature-btn" id="shapeButton" title="Shape mode" aria-label="Shape mode">○</button>
@@ -148,7 +148,7 @@
 
     <div class="gesture-toast" id="gestureToast" hidden></div>
     <div class="hint" id="hint" hidden>
-      <span>☝️ Index</span> draw · <span>✊ Fist</span> pause · <span>✌️ Two fingers</span> tool · <span>👍</span> undo · <span>🤏 Pinch</span> select · <span>🖐️ Palm</span> pause/clear
+      <span>☝️ Index</span> draw · <span>✊ Fist</span> pause · <span>👍</span> undo · <span>🤏 Pinch</span> select · <span>🖐️ Palm</span> pause/clear
     </div>
 
     <footer>
@@ -158,6 +158,6 @@
     </footer>
   </main>
 
-  <script src="app.js?v=19"></script>
+  <script src="app.js?v=20"></script>
 </body>
 </html>
