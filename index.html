@@ -77,6 +77,10 @@
             <button class="icon-btn feature-btn" id="sizeUpButton" title="Larger brush" aria-label="Larger brush">+</button>
             <button class="icon-btn feature-btn" id="effectButton" title="Brush effect" aria-label="Brush effect">✦</button>
             <button class="icon-btn feature-btn" id="galleryButton" title="Gallery" aria-label="Gallery">▣</button>
+            <button class="icon-btn feature-btn" id="opacityDownButton" title="Lower opacity" aria-label="Lower opacity">◐</button>
+            <button class="icon-btn feature-btn opacity-display" id="opacityDisplay" title="Opacity" aria-label="Opacity">100</button>
+            <button class="icon-btn feature-btn" id="opacityUpButton" title="Raise opacity" aria-label="Raise opacity">◑</button>
+            <button class="icon-btn feature-btn" id="shapeButton" title="Shape mode" aria-label="Shape mode">○</button>
           </div>
 
           <div class="colors" aria-label="Colors">
@@ -121,6 +125,7 @@
       </div>
     </div>
 
+    <div class="gesture-toast" id="gestureToast" hidden></div>
     <div class="hint" id="hint" hidden>
       <span>Index finger</span> to draw · <span>Make a fist</span> to pause · <span>Open hand</span> to draw again
     </div>
@@ -132,6 +137,6 @@
     </footer>
   </main>
 
-  <script src="app.js?v=16"></script>
+  <script src="app.js?v=17"></script>
 </body>
 </html>
