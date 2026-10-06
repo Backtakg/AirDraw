@@ -1283,11 +1283,9 @@ function isOpenPalm(hand) {
 }
 
 function isIndexOnly(hand) {
-  const indexUp = fingerExtended(hand, 8, 6);
-  const middleDown = !fingerExtended(hand, 12, 10);
-  const ringDown = !fingerExtended(hand, 16, 14);
-  const pinkyDown = !fingerExtended(hand, 20, 18);
-  return indexUp && middleDown && ringDown && pinkyDown;
+  // Be tolerant of natural finger movement: the index being extended is
+  // enough to draw. Dedicated gestures are checked before this function.
+  return fingerExtended(hand, 8, 6);
 }
 
 function isThumbUpGesture(hand) {
