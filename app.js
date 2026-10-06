@@ -1332,11 +1332,18 @@ function processResults(results){
   const hs=results.multiHandLandmarks||[]; if(hs.length)setStatus(hs.length>1?"Two hands detected":"Hand detected",true);else if(trackingReady)setStatus("Tracking ready — show your hand",true);
   if(!hs.length){smoothedPoint=null;controlHand=null;endStroke();clearAirControlHover();drawPaused=false;lastGestureName="";return;}
   let drawHand=hs[0];controlHand=null;if(twoHandMode&&hs.length>1){controlHand=hs[1];applyTwoHandControls(controlHand);}
-  const raw=canvasPoint(drawHand[8]);smoothedPoint=raw;const control=getAirControlAt(smoothedPoint);updateAirControlHover(control);
+  const raw=canvasPoint(drawHand[8]);
+  // Always track the index fingertip when a hand is visible. Gesture recognition
+  // only decides whether drawing is allowed; it must not hide the tracking cursor.
+  smoothedPoint=raw;const control=getAirControlAt(smoothedPoint);updateAirControlHover(control);
   const gesture=handleGesture(drawHand),selecting=gesture==="pinch",selected=selecting?updateAirControlDwell(control):false;drawCursor(smoothedPoint,selecting||Boolean(control));
   if(!selecting){clearAirControlHover();dwellControl=null;dwellStartedAt=0;selectedAirControl=null;}
   if(gesture==="fist"||gesture==="thumb"){endStroke();drawPaused=true;return;}
-  drawPaused=false;if(selecting||selected){endStroke();return;}if(gesture!=="index"){endStroke();return;}
+  drawPaused=false;
+  if(selecting||selected){endStroke();return;}
+  // A visible hand is enough to keep fingertip tracking active. This avoids
+  // losing the index point because of small finger-angle variations.
+  if(!fingerExtended(drawHand, 8, 6) && gesture!=="index"){endStroke();return;}
   if(uiInteractionLock){endStroke();smoothedPoint=null;uiInteractionLock=false;return;}
   if(!activeStroke)beginStroke(smoothedPoint);else addPoint(smoothedPoint);
 }
@@ -1390,7 +1397,7 @@ function setupHands(assetBase) {
   });
 
   hands.setOptions({
-    maxNumHands: 2,
+    maxNumHands: twoHandMode ? 2 : 1,
     modelComplexity: 0,
     minDetectionConfidence: 0.4,
     minTrackingConfidence: 0.4
