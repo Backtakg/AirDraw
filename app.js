@@ -44,7 +44,6 @@ const customColorInput = document.querySelector("#customColorInput");
 const rainbowColorButton = document.querySelector("#rainbowColorButton");
 const gradientColorButton = document.querySelector("#gradientColorButton");
 const particleButton = document.querySelector("#particleButton");
-const recentColors = document.querySelector("#recentColors");
 const layersPanel = document.querySelector("#layersPanel");
 const layersList = document.querySelector("#layersList");
 const addLayerButton = document.querySelector("#addLayerButton");
