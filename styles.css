@@ -811,3 +811,8 @@ footer {
   .layer-row { grid-template-columns:minmax(0,1fr) 22px 21px 21px 21px; }
   .layer-visibility,.layer-up,.layer-down,.layer-delete { width:21px;height:21px;font-size:.7rem; }
 }
+
+.mode-btn.active{box-shadow:0 0 0 1px rgba(124,92,255,.85),0 0 18px rgba(124,92,255,.25);background:rgba(124,92,255,.18)}
+.stage.grid-mode::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:3;background-image:linear-gradient(rgba(255,255,255,.075) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.075) 1px,transparent 1px);background-size:32px 32px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.stage.grid-mode::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:3;background:linear-gradient(90deg,transparent 49.8%,rgba(255,255,255,.16) 50%,transparent 50.2%),linear-gradient(transparent 49.8%,rgba(255,255,255,.16) 50%,transparent 50.2%)}
+.stage.ar3d-mode::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:2;background:radial-gradient(circle at 50% 50%,transparent 0 34%,rgba(80,170,255,.05) 70%,transparent 100%)}

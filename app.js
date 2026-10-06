@@ -49,6 +49,10 @@ const layersPanel = document.querySelector("#layersPanel");
 const layersList = document.querySelector("#layersList");
 const addLayerButton = document.querySelector("#addLayerButton");
 const layerCount = document.querySelector("#layerCount");
+const symmetryButton = document.querySelector("#symmetryButton");
+const gridButton = document.querySelector("#gridButton");
+const twoHandButton = document.querySelector("#twoHandButton");
+const ar3dButton = document.querySelector("#ar3dButton");
 
 let hands = null;
 let stream = null;
@@ -102,6 +106,8 @@ let tesseractLoading = null;
 let backgroundMode = "camera";
 let customBackgroundImage = null;
 const BACKGROUNDS = ["camera", "black", "white", "custom", "transparent"];
+let symmetryMode = false, gridMode = false, twoHandMode = false, ar3dMode = false;
+let controlHand = null, lastControlColorAt = 0;
 
 function setStatus(text, live = false) {
   statusText.textContent = text;
@@ -261,6 +267,16 @@ function handleBackgroundButton() {
   cycleBackground();
 }
 
+function updateModeButtons() {
+  [[symmetryButton,symmetryMode,"Symmetry"],[gridButton,gridMode,"Grid / Guide"],[twoHandButton,twoHandMode,"Two-hand controls"],[ar3dButton,ar3dMode,"AR 3D mode"]].forEach(([b,on,n])=>{if(!b)return;b.classList.toggle("active",on);b.title=n+(on?" (on)":" (off)");b.setAttribute("aria-label",n+(on?" on":" off"));});
+  stage.classList.toggle("grid-mode",gridMode); stage.classList.toggle("ar3d-mode",ar3dMode);
+}
+function toggleSymmetry(){stopDrawingForUI();symmetryMode=!symmetryMode;updateModeButtons();redrawAllLayers();showGesture(symmetryMode?"✦ Symmetry on":"✦ Symmetry off");}
+function toggleGrid(){stopDrawingForUI();gridMode=!gridMode;updateModeButtons();showGesture(gridMode?"▦ Grid guide on":"▦ Grid guide off");}
+function toggleTwoHand(){stopDrawingForUI();twoHandMode=!twoHandMode;updateModeButtons();showGesture(twoHandMode?"👐 Two-hand controls on":"👐 Two-hand controls off");}
+function toggleAR3D(){stopDrawingForUI();ar3dMode=!ar3dMode;updateModeButtons();redrawAllLayers();showGesture(ar3dMode?"🧊 AR 3D depth mode on":"🧊 AR 3D depth mode off");}
+function projectPoint3D(p){if(!ar3dMode)return p;const d=Math.max(-.08,Math.min(.08,Number(p.z||0))),s=1-d*1.8,r=stage.getBoundingClientRect();return{x:r.width/2+(p.x-r.width/2)*s-d*180,y:r.height/2+(p.y-r.height/2)*s+d*90,z:p.z||0};}
+function applyTwoHandControls(hand){if(!twoHandMode||!hand)return;const palm=Math.max(distance(hand[0],hand[9]),.001),pd=distance(hand[4],hand[8])/palm;if(pd<.8){brushSize=Math.max(2,Math.min(32,2+Math.round(Math.max(0,Math.min(1,1-(hand[8].y-.12)/.76))*30)));if(sizeSlider)sizeSlider.value=brushSize;updateSizeDisplay();}if(performance.now()-lastControlColorAt>180&&pd<1.1){const hue=Math.round((1-Math.max(0,Math.min(1,hand[8].x)))*360);colorMode="solid";color=`hsl(${hue},100%,65%)`;lastControlColorAt=performance.now();syncColorModeButtons();}if(isFist(hand)&&performance.now()>gestureCooldownUntil){const ts=["brush","eraser"],next=ts[(ts.indexOf(tool)+1)%ts.length];document.querySelector(`[data-tool="${next}"]`)?.click();gestureCooldownUntil=performance.now()+900;}}
 function resizeCanvases() {
   const rect = stage.getBoundingClientRect();
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -539,38 +555,25 @@ function redrawAllLayers() {
 }
 
 function drawStrokes(ctx, strokeList) {
-  for (const stroke of strokeList) {
-    if (!stroke.points?.length) continue;
-    ctx.save();
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.lineWidth = stroke.size;
-    ctx.globalAlpha = stroke.opacity ?? 1;
-    if (stroke.tool === "eraser") {
-      ctx.globalCompositeOperation = "destination-out";
-      ctx.strokeStyle = "#000";
-    } else {
-      ctx.globalCompositeOperation = "source-over";
-      setStrokePaint(ctx, stroke);
-      if (stroke.effect === "neon") {
-        ctx.shadowColor = stroke.color; ctx.shadowBlur = Math.min(stroke.size * 2.6, 34);
-      } else if (stroke.effect === "glow") {
-        ctx.shadowColor = stroke.color; ctx.shadowBlur = Math.min(stroke.size * 1.35, 20);
-      } else if (stroke.effect === "marker") {
-        ctx.lineWidth = stroke.size * 1.35; ctx.globalAlpha *= 0.82;
-      } else if (stroke.effect === "pencil") {
-        ctx.lineWidth = Math.max(1.2, stroke.size * 0.55); ctx.globalAlpha *= 0.78;
-      } else ctx.shadowBlur = 0;
-      if (stroke.particle && stroke.particle !== "none") drawParticleEffect(ctx, stroke);
+  const render = (source, mirror=false) => {
+    const r=stage.getBoundingClientRect();
+    const stroke={...source,points:source.points.map(p=>{const q=projectPoint3D(p);return{x:mirror?r.width-q.x:q.x,y:q.y,z:q.z};})};
+    ctx.save();ctx.lineCap="round";ctx.lineJoin="round";ctx.lineWidth=stroke.size;ctx.globalAlpha=stroke.opacity??1;
+    if(stroke.tool==="eraser"){ctx.globalCompositeOperation="destination-out";ctx.strokeStyle="#000";}
+    else{ctx.globalCompositeOperation="source-over";setStrokePaint(ctx,stroke);
+      if(stroke.effect==="neon"){ctx.shadowColor=stroke.color;ctx.shadowBlur=Math.min(stroke.size*2.6,34);}
+      else if(stroke.effect==="glow"){ctx.shadowColor=stroke.color;ctx.shadowBlur=Math.min(stroke.size*1.35,20);}
+      else if(stroke.effect==="marker"){ctx.lineWidth=stroke.size*1.35;ctx.globalAlpha*=.82;}
+      else if(stroke.effect==="pencil"){ctx.lineWidth=Math.max(1.2,stroke.size*.55);ctx.globalAlpha*=.78;}
+      else ctx.shadowBlur=0;
+      if(stroke.particle&&stroke.particle!=="none")drawParticleEffect(ctx,stroke);
     }
-    if (stroke.shape && stroke.shape !== "freehand" && stroke.points.length >= 2) drawShape(ctx, stroke);
-    else if (stroke.points.length === 1) {
-      const p = stroke.points[0];
-      ctx.beginPath(); ctx.arc(p.x, p.y, stroke.size / 2, 0, Math.PI * 2);
-      ctx.fillStyle = stroke.tool === "eraser" ? "#000" : (stroke.color || "#fff"); ctx.fill();
-    } else drawSmoothStroke(ctx, stroke.points);
+    if(stroke.shape&&stroke.shape!=="freehand"&&stroke.points.length>=2)drawShape(ctx,stroke);
+    else if(stroke.points.length===1){const p=stroke.points[0];ctx.beginPath();ctx.arc(p.x,p.y,stroke.size/2,0,Math.PI*2);ctx.fillStyle=stroke.tool==="eraser"?"#000":(stroke.color||"#fff");ctx.fill();}
+    else drawSmoothStroke(ctx,stroke.points);
     ctx.restore();
-  }
+  };
+  for(const stroke of strokeList){if(!stroke.points?.length)continue;render(stroke,false);if(symmetryMode&&stroke.tool!=="eraser")render(stroke,true);}
 }
 
 function drawCursor(point, active) {
@@ -1355,86 +1358,19 @@ function handleGesture(hand) {
   return "other";
 }
 
-function processResults(results) {
-  cursorCtx.clearRect(0, 0, stage.clientWidth, stage.clientHeight);
-  const hand = results.multiHandLandmarks?.[0];
-
-  if (hand) setStatus("Hand detected", true);
-  else if (trackingReady) setStatus("Tracking ready — show your hand", true);
-
-  if (!hand) {
-    smoothedPoint = null;
-    endStroke();
-    clearAirControlHover();
-    drawPaused = false;
-    openPalmSince = 0;
-    openPalmCleared = false;
-    lastGestureName = "";
-    return;
-  }
-
-  const raw = canvasPoint(hand[8]);
-  smoothedPoint = raw;
-
-  const control = getAirControlAt(smoothedPoint);
-  updateAirControlHover(control);
-
-  const gesture = handleGesture(hand);
-
-  // Pinch is the intentional "select/control" gesture. Only pinch can
-  // activate air-dwell controls; simply moving over a button no longer
-  // selects it accidentally.
-  const selecting = gesture === "pinch";
-  const selected = selecting ? updateAirControlDwell(control) : false;
-
-  drawCursor(smoothedPoint, selecting || Boolean(control));
-
-  if (!selecting) {
-    clearAirControlHover();
-    dwellControl = null;
-    dwellStartedAt = 0;
-    selectedAirControl = null;
-  }
-
-  // Fist and open palm are strict pause gestures.
-  if (gesture === "fist" || gesture === "open") {
-    endStroke();
-    drawPaused = true;
-    return;
-  }
-
-  // Gesture-based undo is a strict non-drawing action.
-  if (gesture === "thumb") {
-    endStroke();
-    drawPaused = true;
-    return;
-  }
-
-  drawPaused = false;
-
-  // Pinch controls the UI but never draws.
-  if (selecting || selected) {
-    endStroke();
-    return;
-  }
-
-  // Only an index-finger-only pose draws.
-  if (gesture !== "index") {
-    endStroke();
-    return;
-  }
-
-  if (uiInteractionLock) {
-    endStroke();
-    smoothedPoint = null;
-    uiInteractionLock = false;
-    return;
-  }
-
-  if (!activeStroke) beginStroke(smoothedPoint);
-  else addPoint(smoothedPoint);
+function processResults(results){
+  cursorCtx.clearRect(0,0,stage.clientWidth,stage.clientHeight);
+  const hs=results.multiHandLandmarks||[]; if(hs.length)setStatus(hs.length>1?"Two hands detected":"Hand detected",true);else if(trackingReady)setStatus("Tracking ready — show your hand",true);
+  if(!hs.length){smoothedPoint=null;controlHand=null;endStroke();clearAirControlHover();drawPaused=false;openPalmSince=0;openPalmCleared=false;lastGestureName="";return;}
+  let drawHand=hs[0];controlHand=null;if(twoHandMode&&hs.length>1){controlHand=hs[1];applyTwoHandControls(controlHand);}
+  const raw=canvasPoint(drawHand[8]);smoothedPoint=raw;const control=getAirControlAt(smoothedPoint);updateAirControlHover(control);
+  const gesture=handleGesture(drawHand),selecting=gesture==="pinch",selected=selecting?updateAirControlDwell(control):false;drawCursor(smoothedPoint,selecting||Boolean(control));
+  if(!selecting){clearAirControlHover();dwellControl=null;dwellStartedAt=0;selectedAirControl=null;}
+  if(gesture==="fist"||gesture==="open"||gesture==="thumb"){endStroke();drawPaused=true;return;}
+  drawPaused=false;if(selecting||selected){endStroke();return;}if(gesture!=="index"){endStroke();return;}
+  if(uiInteractionLock){endStroke();smoothedPoint=null;uiInteractionLock=false;return;}
+  if(!activeStroke)beginStroke(smoothedPoint);else addPoint(smoothedPoint);
 }
-
 function loadHandsLibrary() {
   if (window.Hands) return Promise.resolve();
 
@@ -1485,7 +1421,7 @@ function setupHands(assetBase) {
   });
 
   hands.setOptions({
-    maxNumHands: 1,
+    maxNumHands: 2,
     modelComplexity: 1,
     minDetectionConfidence: 0.55,
     minTrackingConfidence: 0.55
@@ -1744,6 +1680,7 @@ opacitySlider?.addEventListener("input", event => {
   updateOpacityDisplay();
 });
 shapeButton.addEventListener("click", cycleShape);
+symmetryButton?.addEventListener("click",toggleSymmetry);gridButton?.addEventListener("click",toggleGrid);twoHandButton?.addEventListener("click",toggleTwoHand);ar3dButton?.addEventListener("click",toggleAR3D);updateModeButtons();
 updateOpacityDisplay();
 sizeSlider?.addEventListener("input", event => {
   stopDrawingForUI();
