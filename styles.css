@@ -575,3 +575,10 @@ footer {
   .gallery-panel { padding:12px; border-radius:16px; }
   .gallery-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
 }
+
+.gesture-toast{position:absolute;z-index:50;top:72px;left:50%;transform:translateX(-50%);padding:8px 14px;border:1px solid rgba(255,255,255,.16);border-radius:999px;background:rgba(8,11,20,.86);backdrop-filter:blur(10px);font-size:.72rem;font-weight:700;pointer-events:none}
+.opacity-display{font-size:.62rem!important;font-weight:800}
+@media(max-width:900px),(orientation:portrait){
+ .gesture-toast{top:76px;font-size:.62rem;padding:6px 10px}
+ .feature-tools{flex-wrap:wrap;max-width:145px}
+}
