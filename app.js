@@ -44,6 +44,9 @@ let opacity = 1;
 let shapeMode = "freehand";
 let shapeStart = null;
 let gestureCooldownUntil = 0;
+let openPalmSince = 0;
+let openPalmCleared = false;
+let lastGestureName = "";
 const EFFECTS = ["neon", "normal", "soft"];
 const SHAPES = ["freehand", "line", "rectangle", "circle"];
 let eraserSize = 38;
@@ -137,7 +140,7 @@ let hoveredControl = null;
 let dwellControl = null;
 let dwellStartedAt = 0;
 let lastAirSelectionAt = 0;
-const CONTROL_DWELL_MS = 650;
+const CONTROL_DWELL_MS = 650; // Gesture controls: index, fist, peace, thumb-up, pinch, open palm
 
 function getAirControlAt(point) {
   const controls = document.querySelectorAll(".controls button");
@@ -539,26 +542,123 @@ galleryGrid.addEventListener("click", event => {
   }
 });
 
+function fingerExtended(hand, tip, pip, wrist = 0) {
+  return distance(hand[tip], hand[wrist]) > distance(hand[pip], hand[wrist]) * 1.12;
+}
+
+function isPinch(hand) {
+  const palm = Math.max(distance(hand[0], hand[9]), 0.001);
+  return distance(hand[4], hand[8]) / palm < 0.42;
+}
+
+function isPeaceGesture(hand) {
+  const indexUp = fingerExtended(hand, 8, 6);
+  const middleUp = fingerExtended(hand, 12, 10);
+  const ringDown = !fingerExtended(hand, 16, 14);
+  const pinkyDown = !fingerExtended(hand, 20, 18);
+  return indexUp && middleUp && ringDown && pinkyDown;
+}
+
+function isOpenPalm(hand) {
+  return [8, 12, 16, 20].every((tip, i) => fingerExtended(hand, tip, [6, 10, 14, 18][i]));
+}
+
+function isIndexOnly(hand) {
+  const indexUp = fingerExtended(hand, 8, 6);
+  const middleDown = !fingerExtended(hand, 12, 10);
+  const ringDown = !fingerExtended(hand, 16, 14);
+  const pinkyDown = !fingerExtended(hand, 20, 18);
+  return indexUp && middleDown && ringDown && pinkyDown;
+}
+
+function isThumbUpGesture(hand) {
+  const wrist = hand[0], thumb = hand[4];
+  const palm = Math.max(distance(wrist, hand[9]), 0.001);
+  const otherFingersDown =
+    !fingerExtended(hand, 8, 6) &&
+    !fingerExtended(hand, 12, 10) &&
+    !fingerExtended(hand, 16, 14) &&
+    !fingerExtended(hand, 20, 18);
+  return thumb.y < hand[3].y &&
+    thumb.y < hand[6].y &&
+    distance(thumb, wrist) / palm > 1.25 &&
+    otherFingersDown;
+}
+
+function cycleToolByGesture() {
+  stopDrawingForUI();
+  tool = tool === "brush" ? "eraser" : "brush";
+  document.querySelectorAll(".tool").forEach(button => {
+    button.classList.toggle("active", button.dataset.tool === tool);
+  });
+  showGesture(tool === "brush" ? "✌️ Brush selected" : "✌️ Eraser selected");
+}
+
 function handleGesture(hand) {
   const now = performance.now();
-  if (now < gestureCooldownUntil) return;
-  // Thumb-up: undo. Two-finger V: cycle brush effect.
-  const wrist = hand[0], thumb = hand[4], index = hand[8], middle = hand[12];
-  const palm = Math.max(distance(wrist, hand[9]), 0.001);
-  const thumbUp = thumb.y < hand[3].y && thumb.y < hand[6].y && distance(thumb, wrist) / palm > 1.25;
-  const indexUp = distance(index, wrist) / palm > 1.45;
-  const middleUp = distance(middle, wrist) / palm > 1.45;
-  if (thumbUp && !indexUp && !middleUp) {
-    stopDrawingForUI(); undo(); showGesture("Gesture: Undo"); gestureCooldownUntil = now + 900; return;
+
+  if (isPinch(hand)) {
+    openPalmSince = 0;
+    openPalmCleared = false;
+    return "pinch";
   }
-  if (indexUp && middleUp) {
-    stopDrawingForUI(); cycleEffect(); showGesture("Gesture: Effect changed"); gestureCooldownUntil = now + 900;
+
+  if (isFist(hand)) {
+    openPalmSince = 0;
+    openPalmCleared = false;
+    return "fist";
   }
+
+  if (isOpenPalm(hand)) {
+    endStroke();
+    drawPaused = true;
+    if (!openPalmSince) openPalmSince = now;
+    if (!openPalmCleared && now - openPalmSince >= 1500) {
+      clearDrawing();
+      showGesture("🖐️ Canvas cleared");
+      openPalmCleared = true;
+      gestureCooldownUntil = now + 800;
+    } else if (lastGestureName !== "open") {
+      showGesture("🖐️ Open palm — paused");
+    }
+    lastGestureName = "open";
+    return "open";
+  }
+
+  openPalmSince = 0;
+  openPalmCleared = false;
+
+  if (now < gestureCooldownUntil) return lastGestureName;
+
+  if (isThumbUpGesture(hand)) {
+    stopDrawingForUI();
+    undo();
+    showGesture("👍 Undo");
+    gestureCooldownUntil = now + 900;
+    lastGestureName = "thumb";
+    return "thumb";
+  }
+
+  if (isPeaceGesture(hand)) {
+    cycleToolByGesture();
+    gestureCooldownUntil = now + 900;
+    lastGestureName = "peace";
+    return "peace";
+  }
+
+  if (isIndexOnly(hand)) {
+    lastGestureName = "index";
+    return "index";
+  }
+
+  lastGestureName = "";
+  return "other";
 }
 
 function processResults(results) {
   cursorCtx.clearRect(0, 0, stage.clientWidth, stage.clientHeight);
   const hand = results.multiHandLandmarks?.[0];
+
   if (hand) setStatus("Hand detected", true);
   else if (trackingReady) setStatus("Tracking ready — show your hand", true);
 
@@ -566,6 +666,10 @@ function processResults(results) {
     smoothedPoint = null;
     endStroke();
     clearAirControlHover();
+    drawPaused = false;
+    openPalmSince = 0;
+    openPalmCleared = false;
+    lastGestureName = "";
     return;
   }
 
@@ -575,25 +679,47 @@ function processResults(results) {
   const control = getAirControlAt(smoothedPoint);
   updateAirControlHover(control);
 
-  const fist = isFist(hand);
-  if (!getAirControlAt(smoothedPoint)) handleGesture(hand);
-  if (fist) {
-    fistHeld = true;
-    drawPaused = true;
-    endStroke();
-  } else if (fistHeld) {
-    fistHeld = false;
-    drawPaused = false;
+  const gesture = handleGesture(hand);
+
+  // Pinch is the intentional "select/control" gesture. Only pinch can
+  // activate air-dwell controls; simply moving over a button no longer
+  // selects it accidentally.
+  const selecting = gesture === "pinch";
+  const selected = selecting ? updateAirControlDwell(control) : false;
+
+  drawCursor(smoothedPoint, selecting || Boolean(control));
+
+  if (!selecting) {
+    clearAirControlHover();
+    dwellControl = null;
+    dwellStartedAt = 0;
+    selectedAirControl = null;
   }
 
-  const selected = updateAirControlDwell(control);
-  drawCursor(smoothedPoint, Boolean(control));
+  // Fist and open palm are strict pause gestures.
+  if (gesture === "fist" || gesture === "open") {
+    endStroke();
+    drawPaused = true;
+    return;
+  }
 
-  // A control interaction is a strict pen-up zone. After a control has
-  // been selected, keep drawing disabled until the fingertip has completely
-  // left the controls. This prevents the next tracking frame from joining
-  // the old stroke to the newly selected tool/color.
-  if (control || drawPaused || fist) {
+  // Peace switches brush/eraser and must never become a drawing stroke.
+  if (gesture === "peace" || gesture === "thumb") {
+    endStroke();
+    drawPaused = true;
+    return;
+  }
+
+  drawPaused = false;
+
+  // Pinch controls the UI but never draws.
+  if (selecting || selected) {
+    endStroke();
+    return;
+  }
+
+  // Only an index-finger-only pose draws.
+  if (gesture !== "index") {
     endStroke();
     return;
   }
@@ -607,8 +733,6 @@ function processResults(results) {
 
   if (!activeStroke) beginStroke(smoothedPoint);
   else addPoint(smoothedPoint);
-
-  if (selected) clearAirControlHover();
 }
 
 function loadHandsLibrary() {
