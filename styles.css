@@ -828,3 +828,24 @@ footer {
 .ai-status{font-size:.72rem;color:rgba(255,255,255,.58);line-height:1.4}
 .ai-actions{display:flex;gap:10px;justify-content:flex-end}
 @media(max-width:900px),(orientation:portrait){.ai-panel{padding:14px;border-radius:17px}.ai-actions{justify-content:stretch}.ai-actions .text-action{flex:1;min-width:0}}
+
+
+/* Mobile cleanup: hide the marked secondary controls and lift the layers panel. */
+@media (max-width: 900px), (orientation: portrait) {
+  .recent-colors,
+  #backgroundButton,
+  #textButton,
+  #aiButton {
+    display: none !important;
+  }
+
+  .layers-panel {
+    bottom: 112px;
+  }
+}
+
+@media (max-width: 520px) {
+  .layers-panel {
+    bottom: 112px;
+  }
+}
