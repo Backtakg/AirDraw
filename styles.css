@@ -977,3 +977,23 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
   .layers-help { font-size: .66rem; }
   .hint { font-size: .62rem; }
 }
+
+
+/* Keep the Layers panel anchored to the camera frame, not the device viewport. */
+.stage-wrap { position: relative; }
+.stage-wrap > .layers-panel {
+  position: absolute;
+  top: auto;
+  right: 8px;
+  bottom: 8px;
+  z-index: 60;
+}
+@media (max-width: 900px), (orientation: portrait) {
+  .stage-wrap > .layers-panel {
+    top: auto;
+    right: 8px;
+    bottom: 8px;
+    width: min(190px, calc(100% - 16px));
+    max-height: min(280px, calc(100% - 16px));
+  }
+}
