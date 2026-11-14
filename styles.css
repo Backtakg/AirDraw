@@ -997,3 +997,32 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
     max-height: min(280px, calc(100% - 16px));
   }
 }
+
+
+/* AirDraw visual refresh */
+:root {
+  --accent: #8b7bff;
+  --font-ui: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+body, button, input, textarea { font-family: var(--font-ui); }
+.brand { gap: 12px; }
+.brand-mark { width: 54px !important; height: 48px !important; flex: 0 0 54px; }
+.brand-mark .air-logo-image { width: 54px !important; height: 48px !important; filter: drop-shadow(0 5px 16px rgba(111, 132, 255, .26)); }
+.brand h1 { font-size: clamp(1.45rem, 2.8vw, 1.85rem); font-weight: 820; letter-spacing: -.065em; }
+.brand p { margin-top: 4px; font-size: .7rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: #a7aec4; }
+.status-pill { border-radius: 14px; backdrop-filter: blur(16px); }
+.welcome h2 { letter-spacing: -.055em; font-weight: 800; }
+.welcome-icon { border-radius: 20px; background: linear-gradient(145deg, rgba(139,123,255,.2), rgba(67,181,255,.1)); border-color: rgba(157,145,255,.34); }
+.primary { border-radius: 13px; font-weight: 750; letter-spacing: -.025em; }
+.tool, .icon-btn, .secondary { border-radius: 13px; }
+.stage-wrap { border-radius: 25px; background: linear-gradient(135deg, rgba(139,123,255,.58), rgba(255,255,255,.09), rgba(67,181,255,.38)); }
+.stage { border-radius: 24px; touch-action: none; }
+.layers-panel, .layers-header, .layers-list { display: none !important; }
+@media (max-width: 900px), (orientation: portrait) {
+  .brand { gap: 8px; }
+  .brand-mark { width: 42px !important; height: 38px !important; flex-basis: 42px; }
+  .brand-mark .air-logo-image { width: 42px !important; height: 38px !important; }
+  .brand h1 { font-size: 1.2rem; }
+  .brand p { font-size: .52rem; }
+}
