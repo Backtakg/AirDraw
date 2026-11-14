@@ -340,21 +340,43 @@ let lastAirSelectionAt = 0;
 const CONTROL_DWELL_MS = 650; // Gesture controls: index, fist, peace, thumb-up, pinch, open palm
 
 function getAirControlAt(point) {
-  const controls = document.querySelectorAll(".controls button");
   const stageRect = stage.getBoundingClientRect();
+  // Range inputs need their own hit target: they are not buttons, so the
+  // previous button-only hit test made them impossible to select in the air.
+  const controls = document.querySelectorAll(".controls input[type='range'], .controls button");
 
-  for (const button of controls) {
-    if (button.disabled || button.offsetParent === null) continue;
-    const rect = button.getBoundingClientRect();
+  for (const control of controls) {
+    if (control.disabled || control.offsetParent === null) continue;
+    const rect = control.getBoundingClientRect();
     const localRect = {
       left: rect.left - stageRect.left,
       right: rect.right - stageRect.left,
       top: rect.top - stageRect.top,
       bottom: rect.bottom - stageRect.top
     };
-    if (isPointInsideRect(point, localRect)) return button;
+    if (isPointInsideRect(point, localRect)) return control;
   }
   return null;
+}
+
+function moveAirSlider(slider, point) {
+  if (!(slider instanceof HTMLInputElement) || slider.type !== "range") return false;
+  const rect = slider.getBoundingClientRect();
+  if (!rect.width) return false;
+  // Map the fingertip's horizontal position onto the slider's full value range.
+  const ratio = Math.max(0, Math.min(1, (point.x + stage.getBoundingClientRect().left - rect.left) / rect.width));
+  const min = Number(slider.min || 0);
+  const max = Number(slider.max || 100);
+  const step = Number(slider.step || 1);
+  const rawValue = min + ratio * (max - min);
+  const steppedValue = min + Math.round((rawValue - min) / step) * step;
+  const nextValue = String(Math.max(min, Math.min(max, steppedValue)));
+  if (slider.value !== nextValue) {
+    slider.value = nextValue;
+    slider.dispatchEvent(new Event("input", { bubbles: true }));
+    slider.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  return true;
 }
 
 function updateAirControlHover(button) {
@@ -1461,8 +1483,23 @@ function processResults(results){
   // Always track the index fingertip when a hand is visible. Gesture recognition
   // only decides whether drawing is allowed; it must not hide the tracking cursor.
   smoothedPoint=raw;const control=getAirControlAt(smoothedPoint);updateAirControlHover(control);
-  const gesture=handleGesture(drawHand),selecting=gesture==="pinch",selected=selecting?updateAirControlDwell(control):false;drawCursor(smoothedPoint,selecting||Boolean(control));
-  if(!selecting){clearAirControlHover();dwellControl=null;dwellStartedAt=0;selectedAirControl=null;}
+  const gesture=handleGesture(drawHand),selecting=gesture==="pinch";
+  const isSlider = control instanceof HTMLInputElement && control.type === "range";
+  if (selecting && isSlider) {
+    endStroke();
+    moveAirSlider(control, smoothedPoint);
+    selectedAirControl = control;
+    dwellControl = null;
+    dwellStartedAt = 0;
+  }
+  const selected = selecting && !isSlider ? updateAirControlDwell(control) : false;
+  drawCursor(smoothedPoint, selecting || Boolean(control));
+  if (!selecting) {
+    clearAirControlHover();
+    dwellControl = null;
+    dwellStartedAt = 0;
+    selectedAirControl = null;
+  }
   if(gesture==="fist"||gesture==="thumb"){endStroke();drawPaused=true;drawCursor(smoothedPoint,false);return;}
   drawPaused=false;
   if(selecting||selected){endStroke();drawCursor(smoothedPoint,false);return;}
