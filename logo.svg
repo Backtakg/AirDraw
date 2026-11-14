@@ -1,14 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 110">
-<defs>
- <linearGradient id="g" x1="18" y1="92" x2="140" y2="18" gradientUnits="userSpaceOnUse">
-  <stop stop-color="#16c9ff"/><stop offset=".52" stop-color="#7375ff"/><stop offset="1" stop-color="#ff39d5"/>
- </linearGradient>
- <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-</defs>
-<g fill="none" stroke="url(#g)" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)">
- <path d="M15 73c20 27 65 31 105 10 23-12 35-29 28-42-5-10-15-14-27-15" stroke-width="10"/>
- <path d="M59 76c16-2 30-9 36-19 4-7 5-14 2-21" stroke-width="9"/>
- <path d="M92 42 125 9c5-5 11-6 15-2 4 4 2 10-1 15l-30 39c-6 8-14 9-21 3-5-5-4-12 4-22Z" fill="url(#g)" stroke="none"/>
- <path d="m96 43 24-25" stroke="#fff" stroke-opacity=".65" stroke-width="3"/>
-</g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 96" fill="none">
+  <defs>
+    <linearGradient id="air" x1="12" y1="82" x2="112" y2="10" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#35D6F2"/>
+      <stop offset=".52" stop-color="#8B7BFF"/>
+      <stop offset="1" stop-color="#F17BD5"/>
+    </linearGradient>
+    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g stroke="url(#air)" stroke-linecap="round" stroke-linejoin="round" filter="url(#softGlow)">
+    <path d="M17 68C31 83 55 87 76 77c17-8 28-21 27-34-.7-8-5-14-12-17" stroke-width="7"/>
+    <path d="M35 59c10 9 24 11 35 5 9-5 14-14 12-23" stroke-width="5" opacity=".8"/>
+    <path d="M66 43 91 13c3-4 8-5 12-2 4 3 4 8 1 12L80 56" stroke-width="7"/>
+    <path d="M91 13 106 5" stroke-width="5"/>
+  </g>
+  <circle cx="107" cy="5" r="3.5" fill="#F7A6E5"/>
+  <circle cx="17" cy="68" r="3" fill="#35D6F2"/>
 </svg>
