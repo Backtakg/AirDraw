@@ -1391,9 +1391,12 @@ function isPinch(hand) {
 }
 
 function isIndexOnly(hand) {
-  // Be tolerant of natural finger movement: the index being extended is
-  // enough to draw. Dedicated gestures are checked before this function.
-  return fingerExtended(hand, 8, 6);
+  // Draw with the index finger raised; folded middle, ring and little
+  // fingers keep an open palm from accidentally painting the canvas.
+  return fingerExtended(hand, 8, 6) &&
+    !fingerExtended(hand, 12, 10) &&
+    !fingerExtended(hand, 16, 14) &&
+    !fingerExtended(hand, 20, 18);
 }
 
 function isThumbUpGesture(hand) {
