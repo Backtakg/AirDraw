@@ -1380,8 +1380,15 @@ galleryGrid.addEventListener("click", event => {
   }
 });
 
-function fingerExtended(hand, tip, pip, wrist = 0) {
-  return distance(hand[tip], hand[wrist]) > distance(hand[pip], hand[wrist]) * 1.12;
+function fingerExtensionRatio(hand, tip, pip) {
+  // Compare the fingertip with its own knuckle so detection tolerates
+  // different camera angles and hand rotations.
+  const mcp = hand[pip - 1];
+  return distance(hand[tip], mcp) / Math.max(distance(hand[pip], mcp), 0.001);
+}
+
+function fingerExtended(hand, tip, pip) {
+  return fingerExtensionRatio(hand, tip, pip) > 1.12;
 }
 
 function isPinch(hand) {
@@ -1391,12 +1398,12 @@ function isPinch(hand) {
 }
 
 function isIndexOnly(hand) {
-  // Draw with the index finger raised; folded middle, ring and little
-  // fingers keep an open palm from accidentally painting the canvas.
-  return fingerExtended(hand, 8, 6) &&
-    !fingerExtended(hand, 12, 10) &&
-    !fingerExtended(hand, 16, 14) &&
-    !fingerExtended(hand, 20, 18);
+  // A forgiving index threshold improves reliability while still requiring
+  // the other fingers to be curled rather than an open palm.
+  return fingerExtensionRatio(hand, 8, 6) > 1.08 &&
+    fingerExtensionRatio(hand, 12, 10) < 1.18 &&
+    fingerExtensionRatio(hand, 16, 14) < 1.18 &&
+    fingerExtensionRatio(hand, 20, 18) < 1.18;
 }
 
 function isThumbUpGesture(hand) {
