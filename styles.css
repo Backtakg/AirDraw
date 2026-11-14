@@ -1026,3 +1026,33 @@ body, button, input, textarea { font-family: var(--font-ui); }
   .brand h1 { font-size: 1.2rem; }
   .brand p { font-size: .52rem; }
 }
+
+
+/* Keep the tracking prompt inside the camera/drawing frame. */
+.stage > .status-pill {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 40;
+  width: auto;
+  min-width: 190px;
+  max-width: min(290px, calc(100% - 28px));
+  min-height: 44px;
+  padding: 8px 13px;
+  border-radius: 12px;
+  background: rgba(5, 9, 18, .76);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.stage > .status-pill #statusText { max-width: none; }
+@media (max-width: 900px), (orientation: portrait) {
+  .stage > .status-pill {
+    top: 8px;
+    right: 8px;
+    min-width: 150px;
+    min-height: 36px;
+    max-width: calc(100% - 16px);
+    padding: 6px 9px;
+    font-size: .62rem;
+  }
+}
