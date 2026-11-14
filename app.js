@@ -1385,8 +1385,9 @@ function fingerExtended(hand, tip, pip, wrist = 0) {
 }
 
 function isPinch(hand) {
+  // A tighter palm-relative threshold avoids treating a relaxed hand as a pinch.
   const palm = Math.max(distance(hand[0], hand[9]), 0.001);
-  return distance(hand[4], hand[8]) / palm < 0.42;
+  return distance(hand[4], hand[8]) / palm < 0.28;
 }
 
 function isIndexOnly(hand) {
@@ -1451,13 +1452,13 @@ function processResults(results){
   smoothedPoint=raw;const control=getAirControlAt(smoothedPoint);updateAirControlHover(control);
   const gesture=handleGesture(drawHand),selecting=gesture==="pinch",selected=selecting?updateAirControlDwell(control):false;drawCursor(smoothedPoint,selecting||Boolean(control));
   if(!selecting){clearAirControlHover();dwellControl=null;dwellStartedAt=0;selectedAirControl=null;}
-  if(gesture==="fist"||gesture==="thumb"){endStroke();drawPaused=true;return;}
+  if(gesture==="fist"||gesture==="thumb"){endStroke();drawPaused=true;drawCursor(smoothedPoint,false);return;}
   drawPaused=false;
-  if(selecting||selected){endStroke();return;}
-  // The fingertip cursor is already produced by the landmark model. Do not
-  // require a second, fragile gesture classifier before drawing; that was
-  // causing the cursor to move while strokes never started.
+  if(selecting||selected){endStroke();drawCursor(smoothedPoint,false);return;}
   if(uiInteractionLock){endStroke();smoothedPoint=null;uiInteractionLock=false;return;}
+  // Only an intentional raised-index gesture draws. Open palm and relaxed
+  // hands now hover instead of accidentally starting a stroke.
+  if(gesture!=="index"){endStroke();drawCursor(smoothedPoint,false);return;}
   if(!activeStroke)beginStroke(smoothedPoint);else addPoint(smoothedPoint);
 }
 let handLandmarker = null;
@@ -1802,6 +1803,35 @@ galleryModal.addEventListener("click", event => {
   if (event.target === galleryModal) closeGallery();
 });
 updateSizeDisplay();
+
+
+/* Direct pointer drawing fallback (mouse, pen and touch). */
+let pointerDrawingId = null;
+function pointerCanvasPoint(event) {
+  const rect = stage.getBoundingClientRect();
+  return { x: Math.max(0, Math.min(rect.width, event.clientX - rect.left)),
+           y: Math.max(0, Math.min(rect.height, event.clientY - rect.top)) };
+}
+stage.addEventListener("pointerdown", event => {
+  if (event.button !== 0 || event.target.closest?.(".welcome, .loading, button, input, textarea, select, .gesture-toast")) return;
+  event.preventDefault();
+  pointerDrawingId = event.pointerId;
+  stage.setPointerCapture?.(event.pointerId);
+  beginStroke(pointerCanvasPoint(event));
+});
+stage.addEventListener("pointermove", event => {
+  if (pointerDrawingId !== event.pointerId) return;
+  event.preventDefault();
+  addPoint(pointerCanvasPoint(event));
+});
+function finishPointerStroke(event) {
+  if (pointerDrawingId !== event.pointerId) return;
+  pointerDrawingId = null;
+  endStroke();
+}
+stage.addEventListener("pointerup", finishPointerStroke);
+stage.addEventListener("pointercancel", finishPointerStroke);
+stage.addEventListener("lostpointercapture", finishPointerStroke);
 
 window.addEventListener("resize", resizeCanvases);
 window.addEventListener("beforeunload", () => { try { if (recording) mediaRecorder?.stop(); } catch {} stop(); });
