@@ -7,7 +7,7 @@
   <meta name="description" content="AirDraw — write and draw in the air using your camera and hand tracking.">
   <meta http-equiv="Permissions-Policy" content="camera=(self)">
   <title>AirDraw — Draw in the Air</title>
-  <link rel="stylesheet" href="styles.css?v=33">
+  <link rel="stylesheet" href="styles.css?v=34">
 </head>
 <body>
   <main class="app">
@@ -21,10 +21,6 @@
           <p>Write in the air</p>
         </span>
       </a>
-      <div class="status-pill" id="statusPill">
-        <span class="status-dot"></span>
-        <span id="statusText">Tracking ready<br>Show your hands</span>
-      </div>
     </header>
 
     <section class="stage-wrap">
@@ -32,6 +28,11 @@
         <video id="video" autoplay playsinline muted></video>
         <canvas id="drawCanvas"></canvas>
         <canvas id="cursorCanvas"></canvas>
+
+      <div class="status-pill" id="statusPill">
+        <span class="status-dot"></span>
+        <span id="statusText">Tracking ready<br>Show your hands</span>
+      </div>
 
         <div class="welcome" id="welcome">
           <div class="welcome-icon">☝</div>
@@ -202,6 +203,6 @@
     var PARTICLE_EFFECTS = ["none", "sparks", "stars", "smoke", "fire", "confetti"];
     var particleSeed = Math.floor(Math.random() * 1000000);
   </script>
-  <script src="app.js?v=32"></script>
+  <script src="app.js?v=33"></script>
 </body>
 </html>
