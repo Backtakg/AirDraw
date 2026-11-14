@@ -1398,12 +1398,13 @@ function isPinch(hand) {
 }
 
 function isIndexOnly(hand) {
-  // A forgiving index threshold improves reliability while still requiring
-  // the other fingers to be curled rather than an open palm.
-  return fingerExtensionRatio(hand, 8, 6) > 1.08 &&
-    fingerExtensionRatio(hand, 12, 10) < 1.18 &&
-    fingerExtensionRatio(hand, 16, 14) < 1.18 &&
-    fingerExtensionRatio(hand, 20, 18) < 1.18;
+  // Prioritize the raised index finger and allow more variation in how
+  // the other fingers curl, especially with a phone camera or rotated hand.
+  const indexRaised = fingerExtensionRatio(hand, 8, 6) > 1.02;
+  const middleCurled = fingerExtensionRatio(hand, 12, 10) < 1.38;
+  const ringCurled = fingerExtensionRatio(hand, 16, 14) < 1.38;
+  const littleCurled = fingerExtensionRatio(hand, 20, 18) < 1.42;
+  return indexRaised && middleCurled && ringCurled && littleCurled;
 }
 
 function isThumbUpGesture(hand) {
