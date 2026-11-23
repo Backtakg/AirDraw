@@ -716,6 +716,13 @@ function drawParticleEffect(ctx, stroke) {
 }
 
 function beginStroke(point) {
+  // Resolve the active layer before taking the strokes reference. This keeps
+  // the live stroke and the layer's persistent array identical.
+  ensureLayers();
+  const activeLayer = layers.find(layer => layer.id === activeLayerId);
+  if (!activeLayer) return;
+  strokes = activeLayer.strokes;
+
   activeStroke = {
     tool,
     color,
@@ -725,18 +732,14 @@ function beginStroke(point) {
     effect: brushEffect,
     particle: particleEffect,
     opacity,
-    shape: shapeMode,
+    shape: shapeMode || "freehand",
     points: [point]
   };
-  const activeLayer = layers.find(layer => layer.id === activeLayerId);
-  if (!activeLayer) ensureLayers();
   strokes.push(activeStroke);
-  redraw();
-  const currentLayer = layers.find(layer => layer.id === activeLayerId);
-  if (currentLayer && currentLayer.strokes !== strokes) currentLayer.strokes = strokes;
+  activeLayer.strokes = strokes;
   redoStack = [];
+  redrawAllLayers();
   persistLayers();
-  renderLayers();
   updateHistoryButtons();
 }
 
@@ -795,17 +798,28 @@ function drawLiveSegment(stroke, from, to) {
     }
   }
 
+  // A quadratic segment gives the live pen a smoother feel than the old
+  // hard corner-to-corner line. The canonical stroke is re-rendered with the
+  // full Catmull-Rom-like smoother when the stroke ends.
+  const previous = stroke.points.length > 2 ? stroke.points[stroke.points.length - 3] : null;
+  const controlX = previous ? from.x + (to.x - previous.x) * 0.25 : (from.x + to.x) / 2;
+  const controlY = previous ? from.y + (to.y - previous.y) * 0.25 : (from.y + to.y) / 2;
   ctx.beginPath();
   ctx.moveTo(from.x, from.y);
-  ctx.lineTo(to.x, to.y);
+  ctx.quadraticCurveTo(controlX, controlY, to.x, to.y);
   ctx.stroke();
   ctx.restore();
 }
 
 function endStroke() {
   if (activeStroke) {
+    const activeLayer = layers.find(layer => layer.id === activeLayerId);
+    if (activeLayer) activeLayer.strokes = strokes;
     persistLayers();
     updateHistoryButtons();
+    // Rebuild from the saved stroke points so tracking loss, a pause, or
+    // lifting the hand can never leave only a temporary canvas trace.
+    scheduleRedraw();
   }
   activeStroke = null;
   shapeStart = null;
@@ -1474,10 +1488,10 @@ function fingerExtended(hand, tip, pip) {
 }
 
 function isPinch(hand) {
-  // Pinch is reserved for UI selection. A raised index with curled fingers
-  // takes priority so a natural pen pose is never mistaken for a pinch.
+  // Require a deliberate fingertip touch for UI selection; the looser
+  // threshold used previously could interrupt ordinary pen movement.
   const palm = Math.max(distance(hand[0], hand[9]), 0.001);
-  return distance(hand[4], hand[8]) / palm < 0.20;
+  return distance(hand[4], hand[8]) / palm < 0.16;
 }
 
 function isIndexOnly(hand) {
@@ -1510,16 +1524,16 @@ function isThumbUpGesture(hand) {
 function handleGesture(hand) {
   const now = performance.now();
 
-  // Resolve the pen pose before pinch: on many phone cameras the thumb and
-  // index fingertips remain close even while the index is clearly extended.
-  if (isIndexOnly(hand)) {
-    lastGestureName = "index";
-    return "index";
-  }
-
+  // A true fingertip touch is always a UI pinch. Keep the thumb separated
+  // from the raised index while drawing to avoid accidental selection.
   if (isPinch(hand)) {
     lastGestureName = "pinch";
     return "pinch";
+  }
+
+  if (isIndexOnly(hand)) {
+    lastGestureName = "index";
+    return "index";
   }
 
   if (isFist(hand)) {
