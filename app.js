@@ -1561,18 +1561,24 @@ async function createHandLandmarker(delegate) {
 async function startHandTracking() {
   let lastError = null;
 
-  // GPU is faster on supported phones, but CPU is the reliable fallback.
-  for (const delegate of ["GPU", "CPU"]) {
+  // Mobile browsers frequently expose WebGL/GPU implementations that stall
+  // during MediaPipe startup. Prefer the more compatible CPU delegate there;
+  // desktop browsers still try GPU first, but never wait indefinitely.
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+  const delegates = isMobile ? ["CPU", "GPU"] : ["GPU", "CPU"];
+
+  for (const delegate of delegates) {
     closeHands();
     try {
       showLoading(delegate === "GPU"
         ? "Starting accelerated hand tracking…"
         : "Starting compatible hand tracking…");
 
+      const timeout = delegate === "GPU" ? 12000 : 25000;
       handLandmarker = await withTimeout(
         createHandLandmarker(delegate),
-        30000,
-        "Hand tracking model timed out."
+        timeout,
+        delegate + " hand tracking initialization timed out."
       );
 
       trackingReady = true;
