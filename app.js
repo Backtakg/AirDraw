@@ -744,13 +744,13 @@ function addPoint(point) {
   if (!activeStroke) return;
   if (activeStroke.shape !== "freehand") {
     activeStroke.points = [activeStroke.points[0], point];
-    redraw();
+    scheduleRedraw();
     return;
   }
   const last = activeStroke.points[activeStroke.points.length - 1];
   if (!last || Math.hypot(point.x - last.x, point.y - last.y) > 1.5) {
     activeStroke.points.push(point);
-    redraw();
+    scheduleRedraw();
   }
 }
 
@@ -810,6 +810,14 @@ function drawShape(ctx, stroke) {
 
 function redraw() {
   redrawAllLayers();
+}
+
+function scheduleRedraw() {
+  if (redrawRequestId) return;
+  redrawRequestId = requestAnimationFrame(() => {
+    redrawRequestId = 0;
+    redrawAllLayers();
+  });
 }
 
 function updateHistoryButtons() {
@@ -1416,20 +1424,20 @@ function fingerExtended(hand, tip, pip) {
 function isPinch(hand) {
   // A tighter palm-relative threshold avoids treating a relaxed hand as a pinch.
   const palm = Math.max(distance(hand[0], hand[9]), 0.001);
-  return distance(hand[4], hand[8]) / palm < 0.28;
+  return distance(hand[4], hand[8]) / palm < 0.20;
 }
 
 function isIndexOnly(hand) {
   // Use a tolerant point gesture: phone-camera perspective and hand rotation
   // can make a naturally curled finger look partly extended. Require the
   // index to be raised and at least two of the remaining fingers to be curled.
-  const indexRaised = fingerExtensionRatio(hand, 8, 6) > 1.0;
+  const indexRaised = fingerExtensionRatio(hand, 8, 6) > 0.92;
   const curledCount = [
     fingerExtensionRatio(hand, 12, 10) < 1.55,
     fingerExtensionRatio(hand, 16, 14) < 1.55,
     fingerExtensionRatio(hand, 20, 18) < 1.6
   ].filter(Boolean).length;
-  return indexRaised && curledCount >= 2;
+  return indexRaised && curledCount >= 1;
 }
 
 function isThumbUpGesture(hand) {
@@ -1515,6 +1523,9 @@ function processResults(results){
 let handLandmarker = null;
 let handLandmarkerModule = null;
 let lastVideoTime = -1;
+let lastInferenceAt = 0;
+const INFERENCE_INTERVAL_MS = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "") ? 75 : 40;
+let redrawRequestId = 0;
 let trackingFrameCount = 0;
 let trackingErrorCount = 0;
 
@@ -1609,6 +1620,9 @@ function processLandmarkerResults(result) {
 
 async function processFrame(force = false) {
   if (!handLandmarker || !stream || video.readyState < 2) return false;
+  const now = performance.now();
+  if (!force && now - lastInferenceAt < INFERENCE_INTERVAL_MS) return false;
+  lastInferenceAt = now;
 
   try {
     // Hand Landmarker VIDEO mode requires a strictly increasing timestamp.
@@ -1659,7 +1673,7 @@ async function start() {
     if (!stream) {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "user" }, width: { ideal: 640, max: 1280 }, height: { ideal: 480, max: 720 }, frameRate: { ideal: 30, max: 30 } },
+          video: { facingMode: { ideal: "user" }, width: { ideal: 480, max: 640 }, height: { ideal: 360, max: 480 }, frameRate: { ideal: 20, max: 24 } },
           audio: false
         });
       } catch (cameraError) {
