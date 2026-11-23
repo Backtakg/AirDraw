@@ -570,6 +570,11 @@ function redrawAllLayers() {
   drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
   drawCtx.restore();
   drawCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // Keep any in-progress stroke attached to its active layer during redraw.
+  const activeLayer = layers.find(layer => layer.id === activeLayerId);
+  if (activeLayer && activeStroke && !activeLayer.strokes.includes(activeStroke)) {
+    activeLayer.strokes.push(activeStroke);
+  }
   for (const layer of layers) {
     if (!layer.visible) continue;
     if (layer.snapshot) {
@@ -757,13 +762,12 @@ function addPoint(point) {
 
   points.push(point);
 
-  // Keep the fast path genuinely incremental. Complex modes still use the
-  // complete renderer so their transforms/effects remain visually correct.
-  if (symmetryMode || ar3dMode || (activeStroke.particle && activeStroke.particle !== "none")) {
-    scheduleRedraw();
-  } else {
-    drawLiveSegment(activeStroke, last, point);
-  }
+  // The stroke array is the source of truth. Repaint from stored points
+  // instead of relying on temporary canvas pixels, so the complete path
+  // remains visible during tracking gaps, pauses, and hand exits.
+  const activeLayer = layers.find(layer => layer.id === activeLayerId);
+  if (activeLayer) activeLayer.strokes = strokes;
+  scheduleRedraw();
 }
 
 function drawLiveSegment(stroke, from, to) {
@@ -814,14 +818,19 @@ function drawLiveSegment(stroke, from, to) {
 function endStroke() {
   if (activeStroke) {
     const activeLayer = layers.find(layer => layer.id === activeLayerId);
-    if (activeLayer) activeLayer.strokes = strokes;
+    if (activeLayer) {
+      // Commit the same array that contains the live stroke before release.
+      activeLayer.strokes = strokes;
+      strokes = activeLayer.strokes;
+    }
     persistLayers();
     updateHistoryButtons();
-    // Rebuild from the saved stroke points so tracking loss, a pause, or
-    // lifting the hand can never leave only a temporary canvas trace.
-    scheduleRedraw();
+    activeStroke = null;
+    shapeStart = null;
+    // Replace transient live pixels with a synchronous render of saved strokes.
+    redrawAllLayers();
+    return;
   }
-  activeStroke = null;
   shapeStart = null;
 }
 
@@ -1979,5 +1988,15 @@ window.addEventListener("beforeunload", () => { try { if (recording) mediaRecord
 
 window.addEventListener("DOMContentLoaded", () => {
   loadLayers();
+  redrawAllLayers();
   setTimeout(() => start(), 250);
+});
+
+// Repaint from the vector model after returning to the tab. The canvas bitmap
+// is only a display surface; layer strokes remain the source of truth.
+window.addEventListener("pageshow", () => {
+  if (layers.length) redrawAllLayers();
+});
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && layers.length) redrawAllLayers();
 });
