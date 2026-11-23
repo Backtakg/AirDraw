@@ -747,14 +747,66 @@ function addPoint(point) {
     scheduleRedraw();
     return;
   }
-  const last = activeStroke.points[activeStroke.points.length - 1];
-  if (!last || Math.hypot(point.x - last.x, point.y - last.y) > 1.5) {
-    activeStroke.points.push(point);
+
+  const points = activeStroke.points;
+  const last = points[points.length - 1];
+  if (!last || Math.hypot(point.x - last.x, point.y - last.y) <= 1.25) return;
+
+  points.push(point);
+
+  // Keep the fast path genuinely incremental. Complex modes still use the
+  // complete renderer so their transforms/effects remain visually correct.
+  if (symmetryMode || ar3dMode || (activeStroke.particle && activeStroke.particle !== "none")) {
     scheduleRedraw();
+  } else {
+    drawLiveSegment(activeStroke, last, point);
   }
 }
 
+function drawLiveSegment(stroke, from, to) {
+  const ctx = drawCtx;
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = stroke.size;
+  ctx.globalAlpha = stroke.opacity ?? 1;
+
+  if (stroke.tool === "eraser") {
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.strokeStyle = "#000";
+    ctx.shadowBlur = 0;
+  } else {
+    ctx.globalCompositeOperation = "source-over";
+    setStrokePaint(ctx, stroke);
+    if (stroke.effect === "neon") {
+      ctx.shadowColor = stroke.color;
+      ctx.shadowBlur = Math.min(stroke.size * 2.6, 34);
+    } else if (stroke.effect === "glow") {
+      ctx.shadowColor = stroke.color;
+      ctx.shadowBlur = Math.min(stroke.size * 1.35, 20);
+    } else if (stroke.effect === "marker") {
+      ctx.lineWidth = stroke.size * 1.35;
+      ctx.globalAlpha *= 0.82;
+    } else if (stroke.effect === "pencil") {
+      ctx.lineWidth = Math.max(1.2, stroke.size * 0.55);
+      ctx.globalAlpha *= 0.78;
+    } else {
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(from.x, from.y);
+  ctx.lineTo(to.x, to.y);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function endStroke() {
+  if (activeStroke) {
+    persistLayers();
+    updateHistoryButtons();
+  }
   activeStroke = null;
   shapeStart = null;
 }
@@ -1422,7 +1474,8 @@ function fingerExtended(hand, tip, pip) {
 }
 
 function isPinch(hand) {
-  // A tighter palm-relative threshold avoids treating a relaxed hand as a pinch.
+  // Pinch is reserved for UI selection. A raised index with curled fingers
+  // takes priority so a natural pen pose is never mistaken for a pinch.
   const palm = Math.max(distance(hand[0], hand[9]), 0.001);
   return distance(hand[4], hand[8]) / palm < 0.20;
 }
@@ -1457,11 +1510,20 @@ function isThumbUpGesture(hand) {
 function handleGesture(hand) {
   const now = performance.now();
 
+  // Resolve the pen pose before pinch: on many phone cameras the thumb and
+  // index fingertips remain close even while the index is clearly extended.
+  if (isIndexOnly(hand)) {
+    lastGestureName = "index";
+    return "index";
+  }
+
   if (isPinch(hand)) {
+    lastGestureName = "pinch";
     return "pinch";
   }
 
   if (isFist(hand)) {
+    lastGestureName = "fist";
     return "fist";
   }
 
@@ -1474,11 +1536,6 @@ function handleGesture(hand) {
     gestureCooldownUntil = now + 900;
     lastGestureName = "thumb";
     return "thumb";
-  }
-
-  if (isIndexOnly(hand)) {
-    lastGestureName = "index";
-    return "index";
   }
 
   lastGestureName = "";
@@ -1524,7 +1581,7 @@ let handLandmarker = null;
 let handLandmarkerModule = null;
 let lastVideoTime = -1;
 let lastInferenceAt = 0;
-const INFERENCE_INTERVAL_MS = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "") ? 75 : 40;
+const INFERENCE_INTERVAL_MS = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "") ? 55 : 40;
 let redrawRequestId = 0;
 let trackingFrameCount = 0;
 let trackingErrorCount = 0;
@@ -1575,11 +1632,9 @@ async function createHandLandmarker(delegate) {
 async function startHandTracking() {
   let lastError = null;
 
-  // Mobile browsers frequently expose WebGL/GPU implementations that stall
-  // during MediaPipe startup. Prefer the more compatible CPU delegate there;
-  // desktop browsers still try GPU first, but never wait indefinitely.
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
-  const delegates = isMobile ? ["CPU", "GPU"] : ["GPU", "CPU"];
+  // Prefer GPU on phones for smoother live inference; fall back to CPU if
+  // the browser's WebGL implementation cannot initialize MediaPipe.
+  const delegates = ["GPU", "CPU"];
 
   for (const delegate of delegates) {
     closeHands();
@@ -1588,7 +1643,7 @@ async function startHandTracking() {
         ? "Starting accelerated hand tracking…"
         : "Starting compatible hand tracking…");
 
-      const timeout = delegate === "GPU" ? 12000 : 25000;
+      const timeout = delegate === "GPU" ? 10000 : 25000;
       handLandmarker = await withTimeout(
         createHandLandmarker(delegate),
         timeout,
@@ -1673,7 +1728,7 @@ async function start() {
     if (!stream) {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "user" }, width: { ideal: 480, max: 640 }, height: { ideal: 360, max: 480 }, frameRate: { ideal: 20, max: 24 } },
+          video: { facingMode: { ideal: "user" }, width: { ideal: 360, max: 480 }, height: { ideal: 270, max: 360 }, frameRate: { ideal: 24, max: 30 } },
           audio: false
         });
       } catch (cameraError) {
