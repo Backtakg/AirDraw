@@ -1420,13 +1420,16 @@ function isPinch(hand) {
 }
 
 function isIndexOnly(hand) {
-  // Prioritize the raised index finger and allow more variation in how
-  // the other fingers curl, especially with a phone camera or rotated hand.
-  const indexRaised = fingerExtensionRatio(hand, 8, 6) > 1.02;
-  const middleCurled = fingerExtensionRatio(hand, 12, 10) < 1.38;
-  const ringCurled = fingerExtensionRatio(hand, 16, 14) < 1.38;
-  const littleCurled = fingerExtensionRatio(hand, 20, 18) < 1.42;
-  return indexRaised && middleCurled && ringCurled && littleCurled;
+  // Use a tolerant point gesture: phone-camera perspective and hand rotation
+  // can make a naturally curled finger look partly extended. Require the
+  // index to be raised and at least two of the remaining fingers to be curled.
+  const indexRaised = fingerExtensionRatio(hand, 8, 6) > 1.0;
+  const curledCount = [
+    fingerExtensionRatio(hand, 12, 10) < 1.55,
+    fingerExtensionRatio(hand, 16, 14) < 1.55,
+    fingerExtensionRatio(hand, 20, 18) < 1.6
+  ].filter(Boolean).length;
+  return indexRaised && curledCount >= 2;
 }
 
 function isThumbUpGesture(hand) {
