@@ -1552,6 +1552,7 @@ function processResults(results){
   // only decides whether drawing is allowed; it must not hide the tracking cursor.
   smoothedPoint=raw;const control=getAirControlAt(smoothedPoint);updateAirControlHover(control);
   const gesture=handleGesture(drawHand),selecting=gesture==="pinch";
+  setStatus(gesture==="index" ? "Pen active — drawing" : gesture==="pinch" ? "Pinch — selecting" : "Hand detected — raise index finger", true);
   const isSlider = control instanceof HTMLInputElement && control.type === "range";
   if (selecting && isSlider) {
     endStroke();
@@ -1561,7 +1562,7 @@ function processResults(results){
     dwellStartedAt = 0;
   }
   const selected = selecting && !isSlider ? updateAirControlDwell(control) : false;
-  drawCursor(smoothedPoint, selecting || Boolean(control));
+  drawCursor(smoothedPoint, gesture==="index" || selecting || Boolean(control));
   if (!selecting) {
     clearAirControlHover();
     dwellControl = null;
